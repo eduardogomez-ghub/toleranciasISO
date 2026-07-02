@@ -123,7 +123,8 @@ with tab1:
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        d_nominal = st.number_input("Diámetro Nominal (mm):", min_value=0.5, max_value=3150.0, value=45.0, step=1.0)
+        # Se fuerza explícitamente el formato con punto decimal para el navegador
+        d_nominal = st.number_input("Diámetro Nominal (mm):", min_value=0.5, max_value=3150.0, value=45.0, step=1.0, format="%.1f")
     with col2:
         st.subheader("Agujero")
         ag_letra = st.selectbox("Posición (Letra):", ["H", "A", "B", "C", "CD", "D", "E", "EF", "F", "FG", "G", "JS", "K", "M", "N", "P", "R", "S", "T", "U", "V", "X", "Y", "Z", "ZA", "ZB", "ZC"], index=0, key="let_ag")
@@ -165,10 +166,10 @@ with tab1:
             txt_det1 = f"Juego Máximo: {juego_max:.3f} mm"
             txt_det2 = f"Aprieto Máximo: {abs(juego_min):.3f} mm"
 
-        st.markdown(f"### Ajuste Determinado: <span style='color:{color_ajuste}; font-weight:bold;'>{tipo_ajuste}</span>", unsafe_allow_html=True)
+        st.markdown(f"### Ajuste Determined: <span style='color:{color_ajuste}; font-weight:bold;'>{tipo_ajuste}</span>", unsafe_allow_html=True)
         
         c_m1, c_m2, c_m3 = st.columns(3)
-        c_m1.metric("Especificación", f"Ø{d_nominal} {ag_letra}{ag_grado}/{eje_letra}{eje_grado}")
+        c_m1.metric("Especificación", f"Ø{d_nominal:.1f} {ag_letra}{ag_grado}/{eje_letra}{eje_grado}")
         c_m2.metric("Condición Límite 1", txt_det1)
         c_m3.metric("Condición Límite 2", txt_det2)
 
@@ -185,6 +186,7 @@ with tab1:
         
         col_v1, col_v2 = st.columns(2)
         with col_v1:
+            # Se añade format="%.3f" para obligar al navegador a usar el punto decimal
             val_real_ag = st.number_input("Valor real medido - AGUJERO (mm):", min_value=0.0, max_value=4000.0, value=d_nominal, step=0.001, format="%.3f")
             status_ag = Min_Ag <= val_real_ag <= Max_Ag
             if status_ag:
@@ -192,6 +194,7 @@ with tab1:
             else:
                 st.error(f"🔴 AGUJERO ({val_real_ag:.3f} mm): FUERA de rango tolerado.")
         with col_v2:
+            # Se añade format="%.3f" para obligar al navegador a usar el punto decimal
             val_real_ej = st.number_input("Valor real medido - EJE (mm):", min_value=0.0, max_value=4000.0, value=d_nominal, step=0.001, format="%.3f")
             status_ej = Min_Ej <= val_real_ej <= Max_Ej
             if status_ej:
@@ -271,12 +274,12 @@ with tab1:
         """
         st.components.v1.html(svg_code, height=340)
 
-        reporte_markdown = f"""# Informe Técnico - Ø{d_nominal} {ag_letra}{ag_grado}/{eje_letra}{eje_grado}
+        reporte_markdown = f"""# Informe Técnico - Ø{d_nominal:.1f} {ag_letra}{ag_grado}/{eje_letra}{eje_grado}
 - **Tipo de Ajuste:** {tipo_ajuste}
 - **Agujero:** Superior = {es_Ag:+.3f} mm | Inferior = {ei_Ag:+.3f} mm
 - **Eje:** Superior = {es_Ej:+.3f} mm | Inferior = {ei_Ej:+.3f} mm
 """
-        st.download_button("📥 Descargar Informe", data=reporte_markdown, file_name=f"ajuste_Ø{d_nominal}.md")
+        st.download_button("📥 Descargar Informe", data=reporte_markdown, file_name=f"ajuste_Ø{d_nominal:.1f}.md")
 
 with tab2:
     st.header("Consulta Rápida por Componente")
@@ -284,7 +287,8 @@ with tab2:
     
     with col_c1:
         tipo_c = st.radio("Tipo de Elemento:", ["Agujero", "Eje"])
-        d_nom_c = st.number_input("Medida Nominal (mm):", min_value=0.5, max_value=3150.0, value=100.0, step=5.0, key="comp_d")
+        # Se añade format="%.1f" para obligar al navegador a usar el punto decimal
+        d_nom_c = st.number_input("Medida Nominal (mm):", min_value=0.5, max_value=3150.0, value=100.0, step=5.0, format="%.1f", key="comp_d")
     with col_c2:
         letra_c = st.text_input("Letra de Posición (ej. H, g, JS):", value="H" if tipo_c == "Agujero" else "h")
         grado_c = st.selectbox("Grado / Calidad:", list(TABLA_IT.keys()), index=3, key="comp_g")
@@ -303,7 +307,7 @@ with tab2:
             for al in errs_c:
                 st.warning(al)
                 
-            st.markdown(f"### Resultados para **Ø{d_nom_c} {letra_c}{grado_c}**")
+            st.markdown(f"### Resultados para **Ø{d_nom_c:.1f} {letra_c}{grado_c}**")
             
             cc1, cc2 = st.columns(2)
             cc1.metric("Desviación Superior", f"{es_c:+.3f} mm")
