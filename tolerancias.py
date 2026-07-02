@@ -114,7 +114,7 @@ def calcular_limites(nominal, letra, grado, es_agujero):
 # --- HEADER INTERFAZ ---
 st.title("FitsStudio Pro 🛠️")
 st.caption("Norma Completa ISO • Validador de Ajustes Industriales en Milímetros")
-st.hr()
+st.divider()
 
 # --- ENTRADA DE DATOS ---
 col_in1, col_in2 = st.columns(2)
@@ -179,7 +179,7 @@ if not error:
             st.caption(f"Desviaciones: dsu: {sup_um_e/1000.0:+.4f} mm | dinf: {inf_um_e/1000.0:+.4f} mm")
             
         # --- TABLA DE CARACTERÍSTICAS ---
-        st.hr()
+        st.divider()
         st.subheader("⚙️ Aplicación Mecánica Recomendada")
         clave_combinacion = (f"{letra_a}{grado_a}", f"{letra_e}{grado_e}")
         
