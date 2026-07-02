@@ -256,8 +256,8 @@ if st.button("PROCESAR AJUSTE INDUSTRIAL"):
             # Grid de Resultados Numéricos Originales (Dimensiones de los bloques)
             html_grid = f"""<div style="background-color: {COLOR_CARD}; border: 1px solid #334155; padding: 15px; border-radius: 5px; display: flex; justify-content: space-around; margin-top: 15px;">
 <div>
-<span style="color: {COLOR_TEXT_MUTED}; font-size: 12px;">Hoyo Máximo:</span> <span style="color: {COLOR_PRIMARY}; font-size: 20px; font-weight: bold;">{max_a}</span><br>
-<span style="color: {COLOR_TEXT_MUTED}; font-size: 12px;">Hoyo Mínimo:</span> <span style="color: {COLOR_PRIMARY}; font-size: 20px; font-weight: bold;">{min_a}</span>
+<span style="color: {COLOR_TEXT_MUTED}; font-size: 12px;">Agujero Máximo:</span> <span style="color: {COLOR_PRIMARY}; font-size: 20px; font-weight: bold;">{max_a}</span><br>
+<span style="color: {COLOR_TEXT_MUTED}; font-size: 12px;">Agujero Mínimo:</span> <span style="color: {COLOR_PRIMARY}; font-size: 20px; font-weight: bold;">{min_a}</span>
 </div>
 <div style="color: #334155; font-size: 30px;">│</div>
 <div>
