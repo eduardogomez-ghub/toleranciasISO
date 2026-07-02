@@ -246,7 +246,7 @@ with tab1:
         svg_code = f"""
         <svg width="100%" height="320" viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg" style="background-color: #1a1a1a; border-radius: 8px;">
             <line x1="50" y1="{origen_y}" x2="750" y2="{origen_y}" stroke="#95a5a6" stroke-width="2" stroke-dasharray="5,5"/>
-            <text x="755" y="{origen_y+5}" fill="#95a5a6" font-family="sans-serif" font-size="12">          Nominal</text>
+            <text x="755" y="{origen_y+15}" fill="#95a5a6" font-family="sans-serif" font-size="12">          Nominal</text>
             
             <rect x="100" y="{min(y_ag_sup, y_ag_inf)}" width="160" height="{max(1.0, abs(y_ag_sup - y_ag_inf))}" fill="url(#diagonalHatchHole)" stroke="#2ecc71" stroke-width="2" opacity="0.85"/>
             <text x="180" y="{min(y_ag_sup, y_ag_inf) - 10}" fill="#2ecc71" font-family="sans-serif" font-weight="bold" font-size="14" text-anchor="middle">AGUJERO ({ag_letra}{ag_grado})</text>
