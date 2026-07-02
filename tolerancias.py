@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- MOTOR DE DATOS OFICIALES UNE-EN 20286-2 (Valores originales en micras para precisión de cálculo) ---
+# --- MOTOR DE DATOS OFICIALES UNE-EN 20286-2 ---
 RANGOS_DIAMETROS = [
     (0, 3), (3, 6), (6, 10), (10, 18), (18, 30), (30, 50), (50, 80), (80, 120),
     (120, 180), (180, 250), (250, 315), (315, 400), (400, 500), (500, 630),
@@ -110,7 +110,6 @@ def obtener_tolerancias_completas(tipo, letra, grado, diametro):
                 ei_inf = dev_fund
                 es_sup = ei_inf + it_val
 
-    # Retornamos los valores convertidos directamente a mm
     return es_sup / 1000.0, ei_inf / 1000.0, it_val / 1000.0, alertas
 
 # --- INTERFAZ DE USUARIO (STREAMLIT) ---
@@ -181,9 +180,33 @@ with tab1:
         })
         st.table(df_res.set_index("Característica"))
 
+        # --- SECCIÓN NUEVA: VALIDACIÓN DE VALORES REALES DE TALLER ---
+        st.markdown("#### 📍 Validación de Piezas Reales (Metrología)")
+        activar_medicion = st.checkbox("Habilitar introducción de valores reales medidos en taller")
+        
+        val_real_ag = d_nominal
+        val_real_ej = d_nominal
+        
+        if activar_medicion:
+            col_v1, col_v2 = st.columns(2)
+            with col_v1:
+                val_real_ag = st.number_input("Valor real medido - AGUJERO (mm):", min_value=0.0, max_value=4000.0, value=d_nominal, step=0.001, format="%.3f")
+                status_ag = Min_Ag <= val_real_ag <= Max_Ag
+                if status_ag:
+                    st.success(f"🟢 AGUJERO ({val_real_ag:.3f} mm): DENTRO de rango tolerado.")
+                else:
+                    st.error(f"🔴 AGUJERO ({val_real_ag:.3f} mm): FUERA de rango tolerado.")
+            with col_v2:
+                val_real_ej = st.number_input("Valor real medido - EJE (mm):", min_value=0.0, max_value=4000.0, value=d_nominal, step=0.001, format="%.3f")
+                status_ej = Min_Ej <= val_real_ej <= Max_Ej
+                if status_ej:
+                    st.success(f"🟢 EJE ({val_real_ej:.3f} mm): DENTRO de rango tolerado.")
+                else:
+                    st.error(f"🔴 EJE ({val_real_ej:.3f} mm): FUERA de rango tolerado.")
+
         # --- GENERADOR GRÁFICO (SVG optimizado a mm) ---
         st.markdown("#### 📐 Representación Gráfica del Ajuste")
-        escala_y = 3000.0  # Escala adaptada para dar visibilidad clara en mm
+        escala_y = 3000.0  
         origen_y = 150
         
         y_ag_sup = origen_y - (es_Ag * escala_y)
@@ -191,6 +214,39 @@ with tab1:
         y_eje_sup = origen_y - (es_Ej * escala_y)
         y_eje_inf = origen_y - (ei_Ej * escala_y)
         
+        # Lógica para inyectar las líneas de medición real en el SVG si está activo
+        svg_lineas_reales = ""
+        if activar_medicion:
+            # Línea de medición del Agujero
+            dev_real_ag = val_real_ag - d_nominal
+            y_real_ag = origen_y - (dev_real_ag * escala_y)
+            color_real_ag = "#2ecc71" if Min_Ag <= val_real_ag <= Max_Ag else "#e74c3c"
+            
+            if 0 <= y_real_ag <= 320:
+                svg_lineas_reales += f"""
+                <line x1="130" y1="{y_real_ag}" x2="330" y2="{y_real_ag}" stroke="{color_real_ag}" stroke-width="2.5" stroke-dasharray="4,4"/>
+                <circle cx="230" cy="{y_real_ag}" r="4" fill="{color_real_ag}"/>
+                <text x="230" y="{max(20, y_real_ag - 6)}" fill="{color_real_ag}" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">Valor real: {val_real_ag:.3f}</text>
+                """
+            else:
+                lbl_y = 15 if y_real_ag < 0 else 305
+                svg_lineas_reales += f'<text x="230" y="{lbl_y}" fill="#e74c3c" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">⚠️ Real fuera de escala ({val_real_ag:.3f})</text>'
+
+            # Línea de medición del Eje
+            dev_real_ej = val_real_ej - d_nominal
+            y_real_ej = origen_y - (dev_real_ej * escala_y)
+            color_real_ej = "#2ecc71" if Min_Ej <= val_real_ej <= Max_Ej else "#e74c3c"
+            
+            if 0 <= y_real_ej <= 320:
+                svg_lineas_reales += f"""
+                <line x1="430" y1="{y_real_ej}" x2="630" y2="{y_real_ej}" stroke="{color_real_ej}" stroke-width="2.5" stroke-dasharray="4,4"/>
+                <circle cx="530" cy="{y_real_ej}" r="4" fill="{color_real_ej}"/>
+                <text x="530" y="{max(20, y_real_ej - 6)}" fill="{color_real_ej}" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">Valor real: {val_real_ej:.3f}</text>
+                """
+            else:
+                lbl_y = 15 if y_real_ej < 0 else 305
+                svg_lineas_reales += f'<text x="530" y="{lbl_y}" fill="#e74c3c" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">⚠️ Real fuera de escala ({val_real_ej:.3f})</text>'
+
         svg_code = f"""
         <svg width="100%" height="320" viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg" style="background-color: #1a1a1a; border-radius: 8px;">
             <line x1="50" y1="{origen_y}" x2="750" y2="{origen_y}" stroke="#95a5a6" stroke-width="2" stroke-dasharray="5,5"/>
@@ -205,6 +261,8 @@ with tab1:
             <text x="530" y="{min(y_eje_sup, y_eje_inf) - 10}" fill="#e67e22" font-family="sans-serif" font-weight="bold" font-size="14" text-anchor="middle">EJE ({eje_letra}{eje_grado})</text>
             <text x="620" y="{y_eje_sup+4}" fill="#e67e22" font-family="sans-serif" font-size="11" text-anchor="start">es: {es_Ej:+.3f} mm</text>
             <text x="620" y="{y_eje_inf+4}" fill="#e67e22" font-family="sans-serif" font-size="11" text-anchor="start">ei: {ei_Ej:+.3f} mm</text>
+
+            {svg_lineas_reales}
 
             <defs>
                 <pattern id="diagonalHatchHole" width="10" height="10" patternUnits="userSpaceOnUse">
