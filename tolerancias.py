@@ -77,26 +77,25 @@ if match_a and match_e:
 
     col_g, col_1, col_2 = st.columns([2, 1, 1])
     with col_g:
-        # Calculamos la posición relativa a la línea de cero (en unidades proporcionales)
-        # Usamos un factor de escala (ej. 2) para que las micras sean visibles
-        escala = 2 
+        import streamlit.components.v1 as components
         
-        st.markdown(f"""
-        <div style="position: relative; height: 200px; border-left: 2px dashed #94a3b8; margin-left: 50px;">
-            <div style="position: absolute; top: 100px; width: 100%; border-top: 1px solid #fff; z-index: 1;"></div>
-            <span style="position: absolute; top: 90px; left: -40px; color: #fff; font-size: 10px;">Ø Nom</span>
+        escala = 2 
+        # Aseguramos que el contenido HTML esté bien formado
+        html_code = f"""
+        <div style="position: relative; height: 200px; border-left: 2px dashed #94a3b8; margin-left: 50px; background: #0e1117;">
+            <div style="position: absolute; top: 100px; width: 100%; border-top: 1px solid #ffffff; z-index: 1;"></div>
+            <span style="position: absolute; top: 90px; left: -45px; color: #ffffff; font-size: 10px;">Ø Nom</span>
             
             <div style="position: absolute; top: {100 - (s_a * escala)}px; left: 20px; width: 60px; 
-                        height: {abs(s_a - i_a) * escala}px; background: rgba(59, 130, 246, 0.6); border: 1px solid #3b82f6;">
-                <span style="font-size: 9px; color: white;">Agujero</span>
+                        height: {abs(s_a - i_a) * escala}px; background: rgba(59, 130, 246, 0.5); border: 1px solid #3b82f6;">
             </div>
             
             <div style="position: absolute; top: {100 - (s_e * escala)}px; left: 100px; width: 60px; 
-                        height: {abs(s_e - i_e) * escala}px; background: rgba(249, 115, 22, 0.6); border: 1px solid #f97316;">
-                <span style="font-size: 9px; color: white;">Eje</span>
+                        height: {abs(s_e - i_e) * escala}px; background: rgba(249, 115, 22, 0.5); border: 1px solid #f97316;">
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """
+        components.html(html_code, height=220)
     with col_1:
         st.metric("Agujero Máx", f"{max_a:.4f}mm")
         st.metric("Agujero Mín", f"{min_a:.4f}mm")
