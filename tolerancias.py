@@ -199,7 +199,7 @@ with tab1:
             else:
                 st.error(f"🔴 EJE ({val_real_ej:.3f} mm): FUERA de rango tolerado.")
 
-        # --- GENERADOR GRÁFICO (SVG optimizado a mm con Máscaras de Lectura) ---
+        # --- GENERADOR GRÁFICO (SVG redistribuido y optimizado) ---
         st.markdown("#### 📐 Representación Gráfica del Ajuste")
         escala_y = 3000.0  
         origen_y = 150
@@ -211,52 +211,51 @@ with tab1:
         
         svg_lineas_reales = ""
         
-        # 1. Proyección del Valor Real del Agujero
+        # 1. Proyección del Valor Real del Agujero (Etiqueta a la DERECHA del rectángulo)
         dev_real_ag = val_real_ag - d_nominal
         y_real_ag = origen_y - (dev_real_ag * escala_y)
         color_real_ag = "#2ecc71" if status_ag else "#e74c3c"
         
         if 0 <= y_real_ag <= 320:
             svg_lineas_reales += f"""
-            <line x1="120" y1="{y_real_ag}" x2="340" y2="{y_real_ag}" stroke="{color_real_ag}" stroke-width="2.5" stroke-dasharray="4,4"/>
-            <circle cx="230" cy="{y_real_ag}" r="4" fill="{color_real_ag}"/>
-            <rect x="165" y="{y_real_ag - 9}" width="130" height="18" fill="#1a1a1a" rx="4" stroke="{color_real_ag}" stroke-width="1"/>
-            <text x="230" y="{y_real_ag}" fill="{color_real_ag}" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle" dominant-baseline="middle">Valor real: {val_real_ag:.3f}</text>
+            <line x1="100" y1="{y_real_ag}" x2="375" y2="{y_real_ag}" stroke="{color_real_ag}" stroke-width="2.5" stroke-dasharray="4,4"/>
+            <circle cx="180" cy="{y_real_ag}" r="4" fill="{color_real_ag}"/>
+            <rect x="265" y="{y_real_ag - 9}" width="110" height="18" fill="#1a1a1a" rx="4" stroke="{color_real_ag}" stroke-width="1"/>
+            <text x="320" y="{y_real_ag}" fill="{color_real_ag}" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle" dominant-baseline="middle">Real: {val_real_ag:.3f}</text>
             """
         else:
-            lbl_y = 20 if y_real_ag < 0 else 300
-            svg_lineas_reales += f'<text x="230" y="{lbl_y}" fill="#e74c3c" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">⚠️ Real fuera de escala ({val_real_ag:.3f})</text>'
+            svg_lineas_reales += f'<text x="180" y="{"20" if y_real_ag < 0 else "300"}" fill="#e74c3c" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">⚠️ Real fuera escala ({val_real_ag:.3f})</text>'
 
-        # 2. Proyección del Valor Real del Eje
+        # 2. Proyección del Valor Real del Eje (Etiqueta a la IZQUIERDA del rectángulo)
         dev_real_ej = val_real_ej - d_nominal
         y_real_ej = origen_y - (dev_real_ej * escala_y)
         color_real_ej = "#2ecc71" if status_ej else "#e74c3c"
         
         if 0 <= y_real_ej <= 320:
             svg_lineas_reales += f"""
-            <line x1="420" y1="{y_real_ej}" x2="640" y2="{y_real_ej}" stroke="{color_real_ej}" stroke-width="2.5" stroke-dasharray="4,4"/>
-            <circle cx="530" cy="{y_real_ej}" r="4" fill="{color_real_ej}"/>
-            <rect x="465" y="{y_real_ej - 9}" width="130" height="18" fill="#1a1a1a" rx="4" stroke="{color_real_ej}" stroke-width="1"/>
-            <text x="530" y="{y_real_ej}" fill="{color_real_ej}" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle" dominant-baseline="middle">Valor real: {val_real_ej:.3f}</text>
+            <line x1="425" y1="{y_real_ej}" x2="700" y2="{y_real_ej}" stroke="{color_real_ej}" stroke-width="2.5" stroke-dasharray="4,4"/>
+            <circle cx="620" cy="{y_real_ej}" r="4" fill="{color_real_ej}"/>
+            <rect x="425" y="{y_real_ej - 9}" width="110" height="18" fill="#1a1a1a" rx="4" stroke="{color_real_ej}" stroke-width="1"/>
+            <text x="480" y="{y_real_ej}" fill="{color_real_ej}" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle" dominant-baseline="middle">Real: {val_real_ej:.3f}</text>
             """
         else:
-            lbl_y = 20 if y_real_ej < 0 else 300
-            svg_lineas_reales += f'<text x="530" y="{lbl_y}" fill="#e74c3c" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">⚠️ Real fuera de escala ({val_real_ej:.3f})</text>'
+            svg_lineas_reales += f'<text x="620" y="{"20" if y_real_ej < 0 else "300"}" fill="#e74c3c" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">⚠️ Real fuera escala ({val_real_ej:.3f})</text>'
 
+        # Código SVG con coordenadas X ensanchadas para dejar espacio en el centro
         svg_code = f"""
         <svg width="100%" height="320" viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg" style="background-color: #1a1a1a; border-radius: 8px;">
             <line x1="50" y1="{origen_y}" x2="750" y2="{origen_y}" stroke="#95a5a6" stroke-width="2" stroke-dasharray="5,5"/>
             <text x="755" y="{origen_y+5}" fill="#95a5a6" font-family="sans-serif" font-size="12">Línea Cero</text>
             
-            <rect x="150" y="{min(y_ag_sup, y_ag_inf)}" width="160" height="{max(1.0, abs(y_ag_sup - y_ag_inf))}" fill="url(#diagonalHatchHole)" stroke="#2ecc71" stroke-width="2" opacity="0.85"/>
-            <text x="230" y="{min(y_ag_sup, y_ag_inf) - 10}" fill="#2ecc71" font-family="sans-serif" font-weight="bold" font-size="14" text-anchor="middle">AGUJERO ({ag_letra}{ag_grado})</text>
-            <text x="140" y="{y_ag_sup+4}" fill="#2ecc71" font-family="sans-serif" font-size="11" text-anchor="end">ES: {es_Ag:+.3f} mm</text>
-            <text x="140" y="{y_ag_inf+4}" fill="#2ecc71" font-family="sans-serif" font-size="11" text-anchor="end">EI: {ei_Ag:+.3f} mm</text>
+            <rect x="100" y="{min(y_ag_sup, y_ag_inf)}" width="160" height="{max(1.0, abs(y_ag_sup - y_ag_inf))}" fill="url(#diagonalHatchHole)" stroke="#2ecc71" stroke-width="2" opacity="0.85"/>
+            <text x="180" y="{min(y_ag_sup, y_ag_inf) - 10}" fill="#2ecc71" font-family="sans-serif" font-weight="bold" font-size="14" text-anchor="middle">AGUJERO ({ag_letra}{ag_grado})</text>
+            <text x="90" y="{y_ag_sup+4}" fill="#2ecc71" font-family="sans-serif" font-size="11" text-anchor="end">ES: {es_Ag:+.3f} mm</text>
+            <text x="90" y="{y_ag_inf+4}" fill="#2ecc71" font-family="sans-serif" font-size="11" text-anchor="end">EI: {ei_Ag:+.3f} mm</text>
 
-            <rect x="450" y="{min(y_eje_sup, y_eje_inf)}" width="160" height="{max(1.0, abs(y_eje_sup - y_eje_inf))}" fill="url(#diagonalHatchShaft)" stroke="#e67e22" stroke-width="2" opacity="0.85"/>
-            <text x="530" y="{min(y_eje_sup, y_eje_inf) - 10}" fill="#e67e22" font-family="sans-serif" font-weight="bold" font-size="14" text-anchor="middle">EJE ({eje_letra}{eje_grado})</text>
-            <text x="620" y="{y_eje_sup+4}" fill="#e67e22" font-family="sans-serif" font-size="11" text-anchor="start">es: {es_Ej:+.3f} mm</text>
-            <text x="620" y="{y_eje_inf+4}" fill="#e67e22" font-family="sans-serif" font-size="11" text-anchor="start">ei: {ei_Ej:+.3f} mm</text>
+            <rect x="540" y="{min(y_eje_sup, y_eje_inf)}" width="160" height="{max(1.0, abs(y_eje_sup - y_eje_inf))}" fill="url(#diagonalHatchShaft)" stroke="#e67e22" stroke-width="2" opacity="0.85"/>
+            <text x="620" y="{min(y_eje_sup, y_eje_inf) - 10}" fill="#e67e22" font-family="sans-serif" font-weight="bold" font-size="14" text-anchor="middle">EJE ({eje_letra}{eje_grado})</text>
+            <text x="710" y="{y_eje_sup+4}" fill="#e67e22" font-family="sans-serif" font-size="11" text-anchor="start">es: {es_Ej:+.3f} mm</text>
+            <text x="710" y="{y_eje_inf+4}" fill="#e67e22" font-family="sans-serif" font-size="11" text-anchor="start">ei: {ei_Ej:+.3f} mm</text>
 
             {svg_lineas_reales}
 
