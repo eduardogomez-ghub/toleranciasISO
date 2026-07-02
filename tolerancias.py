@@ -131,6 +131,9 @@ def validar_y_calcular(texto_ajuste, es_agujero=True):
 # =====================================================================
 # DIBUJO TÉCNICO VECTORIZADO (Sustituye al Canvas de Tkinter)
 # =====================================================================
+# =====================================================================
+# DIBUJO TÉCNICO VECTORIZADO (Sustituye al Canvas de Tkinter)
+# =====================================================================
 def generar_grafico_svg(sup_a, inf_a, sup_e, inf_e, error=False):
     if error: return ""
     w, h = 640, 130
@@ -153,10 +156,11 @@ def generar_grafico_svg(sup_a, inf_a, sup_e, inf_e, error=False):
     inf_e_mm = inf_e / 1000.0
 
     # HTML y SVG pegado a la izquierda para evitar que Markdown lo tome como código
+    # Se ha cambiado x="60" por x="20" en la línea del texto "LÍNEA CERO"
     svg = f"""<div style="background-color: {COLOR_BG}; border: 1px solid #334155; padding: 10px; border-radius: 5px; text-align: center; overflow-x: auto;">
 <svg width="{w}" height="{h}">
     <line x1="20" y1="{linea_cero_y}" x2="{w - 20}" y2="{linea_cero_y}" stroke="{COLOR_ZERO_LINE}" stroke-width="1.5" stroke-dasharray="4, 4" />
-    <text x="60" y="{linea_cero_y - 10}" fill="{COLOR_TEXT_MUTED}" font-family="Segoe UI" font-size="10" font-weight="bold">LÍNEA CERO (Nominal)</text>
+    <text x="20" y="{linea_cero_y - 10}" fill="{COLOR_TEXT_MUTED}" font-family="Segoe UI" font-size="10" font-weight="bold">LÍNEA CERO (Nominal)</text>
     <rect x="{x_agujero_ini}" y="{min(y_agujero_sup, y_agujero_inf)}" width="{x_agujero_fin - x_agujero_ini}" height="{abs(y_agujero_sup - y_agujero_inf)}" fill="#1e3a8a" stroke="{COLOR_PRIMARY}" stroke-width="2" />
     <text x="{(x_agujero_ini + x_agujero_fin)//2}" y="{(y_agujero_sup + y_agujero_inf)//2 + 4}" fill="#93c5fd" font-family="Segoe UI" font-size="11" font-weight="bold" text-anchor="middle">AGUJERO</text>
     <text x="{x_agujero_ini - 10}" y="{y_agujero_sup + 4}" fill="{COLOR_PRIMARY}" font-family="Consolas" font-size="10" text-anchor="end">{f"+{sup_a_mm:.4f} mm" if sup_a_mm >= 0 else f"{sup_a_mm:.4f} mm"}</text>
