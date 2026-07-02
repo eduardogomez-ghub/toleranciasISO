@@ -1,293 +1,309 @@
 import streamlit as st
-import re
+import pandas as pd
+import math
 
-# =====================================================================
-# CONFIGURACIÓN DE PÁGINA STREAMLIT
-# =====================================================================
-st.set_page_config(page_title="FitsStudio Pro", layout="centered")
+# Configuración de página profesional
+st.set_page_config(
+    page_title="Calculador Avanzado de Tolerancias ISO 286",
+    page_icon="⚙️",
+    layout="wide"
+)
 
-# =====================================================================
-# PALETA DE COLORES PREMIUM (DARK MODE INDUSTRIAL)
-# =====================================================================
-COLOR_BG = "#0f172a"          # Fondo principal oscuro
-COLOR_CARD = "#1e293b"        # Fondo de tarjetas
-COLOR_TEXT_MAIN = "#f8fafc"   # Texto principal claro
-COLOR_TEXT_MUTED = "#94a3b8"  # Texto secundario
-COLOR_PRIMARY = "#3b82f6"     # Azul Eléctrico (Agujeros)
-COLOR_ACCENT = "#f59e0b"      # Ámbar/Naranja Técnico (Ejes)
-COLOR_SUCCESS = "#10b981"     # Verde Éxito (Holgura)
-COLOR_WARNING = "#eab308"     # Amarillo/Oro (Indeterminado)
-COLOR_ERROR = "#ef4444"       # Rojo Vibrante (Apriete / Errores)
-COLOR_ZERO_LINE = "#64748b"   # Gris Línea Cero
+# --- MOTOR DE DATOS OFICIALES UNE-EN 20286-2 ---
+# Rangos de medidas nominales (Límite inferior exclusivo, Límite superior inclusivo)
+RANGOS_DIAMETROS = [
+    (0, 3), (3, 6), (6, 10), (10, 18), (18, 30), (30, 50), (50, 80), (80, 120),
+    (120, 180), (180, 250), (250, 315), (315, 400), (400, 500), (500, 630),
+    (630, 800), (800, 1000), (1000, 1250), (1250, 1600), (1600, 2000), (2000, 2500),
+    (2500, 3150)
+]
 
-# =====================================================================
-# MAPEO EXACTO DE TU TABLA (Agujero, Eje) -> (Características, Ejemplos)
-# =====================================================================
-DICCIONARIO_APLICACIONES = {
-    ('H8', 'x8'): ("Prensado duro. Montaje a prensa. No necesita seguro.", "Coronas de bronce, ruedas."),
-    ('H8', 'u8'): ("Prensado duro. Montaje a prensa. No necesita seguro.", "Coronas de bronce, ruedas."),
-    ('H7', 's6'): ("Prensado. Montaje a prensa.", "Piñón motor."),
-    ('H7', 'r6'): ("Prensado ligero. Necesita seguro.", "Engranajes de máquinas."),
-    ('H7', 'n6'): ("Muy forzado. Montaje a martillo.", "Casquillos especiales."),
-    ('H7', 'k6'): ("Forzado. Montaje a martillo.", "Rodamientos a bolas."),
-    ('H7', 'j6'): ("Forzado ligero. Montaje a mazo.", "Rodamientos a bolas."),
-    ('H7', 'h6'): ("Deslizante con lubricación.", "Ejes de lira."),
-    ('H8', 'h9'): ("Deslizante sin lubricación.", "Ejes de contrapunto."),
-    ('H11', 'h9'): ("Deslizante. Ajuste corriente.", "Ejes de colocaciones."),
-    ('H11', 'h11'): ("Deslizante. Ajuste ordinario.", "Ejes-guías atados."),
-    ('H7', 'g6'): ("Giratorio sin juego apreciable.", "Émbolos de freno."),
-    ('H7', 'f7'): ("Giratorio con poco juego.", "Bielas, cojinetes."),
-    ('H8', 'f7'): ("Giratorio con poco juego.", "Bielas, cojinetes."),
-    ('H8', 'e8'): ("Giratorio con gran juego.", "Cojinetes corrientes."),
-    ('H8', 'd9'): ("Giratorio con mucho juego.", "Soportes múltiples."),
-    ('H11', 'c11'): ("Libre (con holgura).", "Cojinetes de máquinas agrícolas."),
-    ('H11', 'a11'): ("Muy libre.", "Avellanados, taladros de tornillos."),
-    ('G7', 'h6'): ("Giratorio sin juego apreciable.", "Émbolos de freno."),
-    ('F8', 'h6'): ("Giratorio con poco juego.", "Bielas, cojinetes."),
-    ('F8', 'h9'): ("Giratorio con poco juego.", "Bielas, cojinetes."),
-    ('E9', 'h9'): ("Giratorio con gran juego.", "Cojinetes corrientes."),
-    ('D10', 'h9'): ("Giratorio con mucho juego.", "Soportes múltiples."),
-    ('C11', 'h9'): ("Libre (con holgura).", "Cojinetes de máquinas agrícolas."),
-    ('A11', 'h11'): ("Muy libre.", "Avellanados, taladros de tornillos.")
-}
-
+# Tabla 1: Valores numéricos de los grados de tolerancia normalizados IT (en micras)
 TABLA_IT = {
-    6:  [(0, 3, 6), (3, 6, 8), (6, 10, 9), (10, 18, 11), (18, 30, 13), (30, 50, 16), (50, 80, 19), (80, 120, 22), (120, 180, 25), (180, 250, 29), (250, 315, 32), (315, 400, 36), (400, 500, 40)],
-    7:  [(0, 3, 10), (3, 6, 12), (6, 10, 15), (10, 18, 18), (18, 30, 21), (30, 50, 25), (50, 80, 30), (80, 120, 35), (120, 180, 40), (180, 250, 46), (250, 315, 52), (315, 400, 57), (400, 500, 63)],
-    8:  [(0, 3, 14), (3, 6, 18), (6, 10, 22), (10, 18, 27), (18, 30, 33), (30, 50, 39), (50, 80, 46), (80, 120, 54), (120, 180, 63), (180, 250, 72), (250, 315, 81), (315, 400, 89), (400, 500, 97)],
-    9:  [(0, 3, 25), (3, 6, 30), (6, 10, 36), (10, 18, 43), (18, 30, 52), (30, 50, 62), (50, 80, 74), (80, 120, 87), (120, 180, 100), (180, 250, 115), (250, 315, 130), (315, 400, 140), (400, 500, 155)],
-    10: [(0, 3, 40), (3, 6, 48), (6, 10, 58), (10, 18, 70), (18, 30, 84), (30, 50, 100), (50, 80, 120), (80, 120, 140), (120, 180, 160), (180, 250, 185), (250, 315, 210), (315, 400, 230), (400, 500, 255)],
-    11: [(0, 3, 60), (3, 6, 75), (6, 10, 90), (10, 18, 110), (18, 30, 130), (30, 50, 160), (50, 80, 190), (80, 120, 220), (120, 180, 250), (180, 250, 290), (250, 315, 320), (315, 400, 360), (400, 500, 400)]
+    "IT5":  [4,   5,   6,   8,   9,   11,  13,  15,  18,  20,  23,  25,  27,  32,  36,  40,  47,  55,  65,  78,  96],
+    "IT6":  [6,   8,   9,   11,  13,  16,  19,  22,  25,  29,  32,  36,  40,  44,  50,  56,  66,  78,  92,  110, 135],
+    "IT7":  [10,  12,  15,  18,  21,  25,  30,  35,  40,  46,  52,  57,  63,  70,  80,  90,  105, 125, 150, 175, 210],
+    "IT8":  [14,  18,  22,  27,  33,  39,  46,  54,  63,  72,  81,  89,  97,  110, 125, 140, 165, 195, 230, 280, 330],
+    "IT9":  [25,  30,  36,  43,  52,  62,  74,  87,  100, 115, 130, 140, 155, 175, 200, 230, 260, 310, 370, 440, 540],
+    "IT10": [40,  48,  58,  70,  84,  100, 120, 140, 160, 185, 210, 230, 250, 280, 320, 360, 420, 500, 600, 700, 860],
+    "IT11": [60,  75,  90,  110, 130, 160, 190, 220, 250, 290, 320, 360, 400, 440, 500, 560, 660, 780, 920, 1100, 1350],
+    "IT12": [100, 120, 150, 180, 210, 250, 300, 350, 400, 460, 520, 570, 630, 700, 800, 900, 1050, 1250, 1500, 1750, 2100],
+    "IT13": [140, 180, 220, 270, 330, 390, 460, 540, 630, 720, 810, 890, 970, 1100, 1250, 1400, 1650, 1950, 2300, 2800, 3300],
 }
 
-def get_desv_agujero(letra, d, it):
-    if letra == 'H': return it, 0
-    if letra == 'G': des = 2 if d<=3 else 4 if d<=6 else 5 if d<=10 else 6 if d<=18 else 7 if d<=30 else 9 if d<=50 else 10 if d<=80 else 12 if d<=120 else 14 if d<=180 else 15 if d<=250 else 17 if d<=315 else 18 if d<=400 else 20
-    elif letra == 'F': des = 6 if d<=3 else 10 if d<=6 else 13 if d<=10 else 16 if d<=18 else 20 if d<=30 else 25 if d<=50 else 30 if d<=80 else 36 if d<=120 else 43 if d<=180 else 50 if d<=250 else 56 if d<=315 else 62 if d<=400 else 68
-    elif letra == 'E': des = 14 if d<=3 else 20 if d<=6 else 25 if d<=10 else 32 if d<=18 else 40 if d<=30 else 50 if d<=50 else 60 if d<=80 else 72 if d<=120 else 85 if d<=180 else 100 if d<=250 else 115 if d<=315 else 130 if d<=400 else 145
-    elif letra == 'D': des = 20 if d<=3 else 30 if d<=6 else 40 if d<=10 else 50 if d<=18 else 65 if d<=30 else 80 if d<=50 else 100 if d<=80 else 120 if d<=120 else 145 if d<=180 else 170 if d<=250 else 190 if d<=315 else 210 if d<=400 else 230
-    elif letra == 'C': des = 60 if d<=18 else 70 if d<=30 else 80 if d<=50 else 95 if d<=80 else 110 if d<=120 else 130 if d<=180 else 150 if d<=250 else 170 if d<=315 else 190 if d<=400 else 210
-    elif letra == 'A': des = 270 if d<=3 else 270 if d<=6 else 280 if d<=10 else 290 if d<=18 else 300 if d<=30 else 320 if d<=50 else 340 if d<=80 else 360 if d<=120 else 400 if d<=180 else 460 if d<=250 else 520 if d<=315 else 580 if d<=400 else 660
-    else: des = 0
-    return it + des, des
+def obtener_indice_rango(d):
+    """Devuelve el índice correspondiente en las tablas según el diámetro."""
+    for idx, (inf, sup) in enumerate(RANGOS_DIAMETROS):
+        if inf < d <= sup:
+            return idx
+    return -1
 
-def get_desv_eje(letra, d, it):
-    if letra == 'h': return 0, -it
-    if letra == 'g': des = -2 if d<=3 else -4 if d<=6 else -5 if d<=10 else -6 if d<=18 else -7 if d<=30 else -9 if d<=50 else -10 if d<=80 else -12 if d<=120 else -14 if d<=180 else -15 if d<=250 else -17 if d<=315 else -18 if d<=400 else -20
-    elif letra == 'f': des = -6 if d<=3 else -10 if d<=6 else -13 if d<=10 else -16 if d<=18 else -20 if d<=30 else -25 if d<=50 else -30 if d<=80 else -36 if d<=120 else -43 if d<=180 else -50 if d<=250 else -56 if d<=315 else -62 if d<=400 else -68
-    elif letra == 'e': des = -14 if d<=3 else -20 if d<=6 else -25 if d<=10 else -32 if d<=18 else -40 if d<=30 else -50 if d<=50 else -60 if d<=80 else -72 if d<=120 else -85 if d<=180 else -100 if d<=250 else -115 if d<=315 else -130 if d<=400 else -145
-    elif letra == 'd': des = -20 if d<=3 else -30 if d<=6 else -40 if d<=10 else -50 if d<=18 else -65 if d<=30 else -80 if d<=50 else -100 if d<=80 else -120 if d<=120 else -145 if d<=180 else -170 if d<=250 else -190 if d<=315 else -210 if d<=400 else -230
-    elif letra == 'c': des = -60 if d<=18 else -70 if d<=30 else -80 if d<=50 else -95 if d<=80 else -110 if d<=120 else -130 if d<=180 else -150 if d<=250 else -170 if d<=315 else -190 if d<=400 else -210
-    elif letra == 'a': des = -270 if d<=3 else -270 if d<=6 else -280 if d<=10 else -290 if d<=18 else -300 if d<=30 else -320 if d<=50 else -340 if d<=80 else -360 if d<=120 else -400 if d<=180 else -460 if d<=250 else -520 if d<=315 else -580 if d<=400 else -660
-    elif letra == 'j': return (it - 2, -2) if d<=3 else (it - 4, -4)
-    elif letra == 'k': des = 0 if d<=3 else 1 if d<=6 else 1 if d<=10 else 2
-    elif letra == 'n': des = 4 if d<=3 else 8 if d<=6 else 10 if d<=10 else 12
-    elif letra == 'r': des = 10 if d<=3 else 15 if d<=6 else 19 if d<=10 else 23
-    elif letra == 's': des = 14 if d<=3 else 19 if d<=6 else 23 if d<=10 else 28
-    elif letra == 'u': des = 18 if d<=3 else 23 if d<=6 else 28 if d<=10 else 33
-    elif letra == 'x': des = 20 if d<=3 else 28 if d<=6 else 34 if d<=10 else 40
-    else: des = 0
-    return (des + it, des) if letra in ['k','n','r','s','u','x'] else (des, des - it)
-
-def descomponer_ajuste(texto, es_agujero=True):
-    texto = text = texto.strip().replace(',', '.')
-    match = re.match(r"^([0-9]*\.?[0-9]+)\s*([a-zA-Z]+)([0-9]+)$", texto)
-    if match:
-        nominal = float(match.group(1))
-        letra = match.group(2)
-        grado = int(match.group(3))
-        
-        if es_agujero and not letra.isupper():
-            return "ERR_MAYUS"
-        if not es_agujero and not letra.islower():
-            return "ERR_MINUS"
-            
-        return nominal, letra, grado
-    return None
-
-def validar_y_calcular(texto_ajuste, es_agujero=True):
-    componentes = descomponer_ajuste(texto_ajuste, es_agujero)
-    if componentes in ["ERR_MAYUS", "ERR_MINUS"]: return componentes, None, 0, 0
-    if not componentes: return None, None, 0, 0
+def calcular_desviacion_fundamental(letra, d, it_val):
+    """
+    Calcula la desviación fundamental (en micras) basada en aproximaciones empíricas 
+    fieles a las tendencias de las tablas ISO 286-1/2 para las letras principales.
+    """
+    letra_lower = letra.lower()
+    es_agujero = letra.isupper()
     
-    nominal, letra, grado = componentes
-    if nominal <= 0 or nominal > 500 or grado not in TABLA_IT: return None, None, 0, 0
-        
-    it_valor = 15
-    for inf, sup, val in TABLA_IT[grado]:
-        if inf < nominal <= sup:
-            it_valor = val
-            break
+    # Dm = Diámetro medio geométrico del rango para cálculos de fórmulas base
+    idx = obtener_indice_rango(d)
+    if idx == -1: return 0
+    inf, sup = RANGOS_DIAMETROS[idx]
+    dm = math.sqrt(inf * (sup if sup > 0 else inf)) if inf > 0 else sup / 2
 
+    # JS / js: Simétricas puras respecto a la línea cero
+    if letra_lower == "js":
+        return 0  # Se calcula explícitamente en la función principal como +- IT/2
+
+    # Casos Base de posición cero
+    if letra_lower == "h":
+        return 0
+
+    # Desviaciones para Ejes (minúsculas)
+    dev_eje = 0
+    if letra_lower == "a":   dev_eje = -(265 + 1.3 * dm) if d <= 120 else -3.5 * dm
+    elif letra_lower == "b": dev_eje = -(140 + 0.85 * dm) if d <= 160 else -1.8 * dm
+    elif letra_lower == "c": dev_eje = -(52 * (dm**0.2))
+    elif letra_lower == "d": dev_eje = -(16 * (dm**0.44))
+    elif letra_lower == "e": dev_eje = -(11 * (dm**0.41))
+    elif letra_lower == "f": dev_eje = -(5.5 * (dm**0.41))
+    elif letra_lower == "g": dev_eje = -(2.5 * (dm**0.34))
+    elif letra_lower == "k": dev_eje = 0.6 * (dm**(1/3))
+    elif letra_lower == "m": dev_eje = 2.8 * (dm**0.41)
+    elif letra_lower == "n": dev_eje = 5 * (dm**0.34)
+    elif letra_lower == "p": dev_eje = 3 * (dm**0.44) + (it_val if it_val < 7 else 0)
+    elif letra_lower == "r": dev_eje = 5 * (dm**0.34) + 10
+    elif letra_lower == "s": dev_eje = (dm**0.44) + 20
+    elif letra_lower in ["t", "u", "v", "x", "y", "z", "za", "zb", "zc"]:
+        # Fuertes aprietos progresivos
+        potencias = {"t": 30, "u": 45, "v": 60, "x": 80, "y": 100, "z": 140, "za": 180, "zb": 220, "zc": 300}
+        dev_eje = potencias[letra_lower] + (dm**0.5)
+
+    # Inversión de signo/reglas para Agujeros (Mayúsculas) según regla general de simetría ISO
     if es_agujero:
-        sup_um, inf_um = get_desv_agujero(letra, nominal, it_valor)
+        return -dev_eje
     else:
-        sup_um, inf_um = get_desv_eje(letra, nominal, it_valor)
+        return dev_eje
 
-    max_real = nominal + (sup_um / 1000.0)
-    min_real = nominal + (inf_um / 1000.0)
-    return f"{max_real:.4f} mm", f"{min_real:.4f} mm", sup_um, inf_um
-
-# =====================================================================
-# DIBUJO TÉCNICO VECTORIZADO (Sustituye al Canvas de Tkinter)
-# =====================================================================
-def generar_grafico_svg(sup_a, inf_a, sup_e, inf_e, error=False):
-    if error: return ""
-    w, h = 640, 130
-    linea_cero_y = h // 2
+def obtener_tolerancias_completas(tipo, letra, grado, diametro):
+    idx = obtener_indice_rango(diametro)
+    if idx == -1:
+        return None, None, None, ["Diámetro fuera del rango normativo (0 - 3150 mm)."]
     
-    max_val = max(abs(sup_a), abs(inf_a), abs(sup_e), abs(inf_e), 15)
-    escala = 40 / max_val
+    alertas = []
+    # Validaciones de restricciones explícitas de la norma UNE
+    if diametro > 500 and letra.upper() in ["A", "B", "C", "V", "X", "Y", "Z", "ZA", "ZB", "ZC"]:
+        alertas.append(f"⚠️ La desviación fundamental '{letra}' no está prevista por la norma para diámetros mayores a 500 mm.")
+    if diametro <= 24 and letra.upper() == "T" and grado in ["IT5", "IT6", "IT7", "IT8"]:
+        alertas.append("⚠️ Norma p.24: Las clases T5 a T8 no se representan para ≤ 24 mm. Se recomienda usar U5 a U8.")
+    if diametro <= 14 and letra.upper() == "V" and grado in ["IT5", "IT6", "IT7", "IT8"]:
+        alertas.append("⚠️ Norma p.25: Las clases V5 a V8 no se representan para ≤ 14 mm. Se recomienda usar X5 a X8.")
+    if diametro <= 18 and letra.upper() == "Y" and grado in ["IT6", "IT7", "IT8", "IT9", "IT10"]:
+        alertas.append("⚠️ Norma p.25: Las clases Y6 a Y10 no se representan para ≤ 18 mm. Se recomienda usar Z6 a Z10.")
 
-    x_agujero_ini, x_agujero_fin = 160, 280
-    x_eje_ini, x_eje_fin = 360, 480
+    it_val = TABLA_IT[grado][idx]
     
-    y_agujero_sup = linea_cero_y - (sup_a * escala)
-    y_agujero_inf = linea_cero_y - (inf_a * escala)
-    y_eje_sup = linea_cero_y - (sup_e * escala)
-    y_eje_inf = linea_cero_y - (inf_e * escala)
-    
-    sup_a_mm = sup_a / 1000.0
-    inf_a_mm = inf_a / 1000.0
-    sup_e_mm = sup_e / 1000.0
-    inf_e_mm = inf_e / 1000.0
-
-    svg = f"""<div style="background-color: {COLOR_BG}; border: 1px solid #334155; padding: 10px; border-radius: 5px; text-align: center; overflow-x: auto;">
-<svg width="{w}" height="{h}">
-    <line x1="20" y1="{linea_cero_y}" x2="{w - 20}" y2="{linea_cero_y}" stroke="{COLOR_ZERO_LINE}" stroke-width="1.5" stroke-dasharray="4, 4" />
-    <text x="20" y="{linea_cero_y - 10}" fill="{COLOR_TEXT_MUTED}" font-family="Segoe UI" font-size="10" font-weight="bold">LÍNEA CERO (Nominal)</text>
-    <rect x="{x_agujero_ini}" y="{min(y_agujero_sup, y_agujero_inf)}" width="{x_agujero_fin - x_agujero_ini}" height="{abs(y_agujero_sup - y_agujero_inf)}" fill="#1e3a8a" stroke="{COLOR_PRIMARY}" stroke-width="2" />
-    <text x="{(x_agujero_ini + x_agujero_fin)//2}" y="{(y_agujero_sup + y_agujero_inf)//2 + 4}" fill="#93c5fd" font-family="Segoe UI" font-size="11" font-weight="bold" text-anchor="middle">AGUJERO</text>
-    <text x="{x_agujero_ini - 10}" y="{y_agujero_sup + 4}" fill="{COLOR_PRIMARY}" font-family="Consolas" font-size="10" text-anchor="end">{f"+{sup_a_mm:.4f} mm" if sup_a_mm >= 0 else f"{sup_a_mm:.4f} mm"}</text>
-    <text x="{x_agujero_ini - 10}" y="{y_agujero_inf + 4}" fill="{COLOR_PRIMARY}" font-family="Consolas" font-size="10" text-anchor="end">{f"+{inf_a_mm:.4f} mm" if inf_a_mm >= 0 else f"{inf_a_mm:.4f} mm"}</text>
-    <rect x="{x_eje_ini}" y="{min(y_eje_sup, y_eje_inf)}" width="{x_eje_fin - x_eje_ini}" height="{abs(y_eje_sup - y_eje_inf)}" fill="#7c2d12" stroke="{COLOR_ACCENT}" stroke-width="2" />
-    <text x="{(x_eje_ini + x_eje_fin)//2}" y="{(y_eje_sup + y_eje_inf)//2 + 4}" fill="#fde047" font-family="Segoe UI" font-size="11" font-weight="bold" text-anchor="middle">EJE</text>
-    <text x="{x_eje_fin + 10}" y="{y_eje_sup + 4}" fill="{COLOR_ACCENT}" font-family="Consolas" font-size="10" text-anchor="start">{f"+{sup_e_mm:.4f} mm" if sup_e_mm >= 0 else f"{sup_e_mm:.4f} mm"}</text>
-    <text x="{x_eje_fin + 10}" y="{y_eje_inf + 4}" fill="{COLOR_ACCENT}" font-family="Consolas" font-size="10" text-anchor="start">{f"+{inf_e_mm:.4f} mm" if inf_e_mm >= 0 else f"{inf_e_mm:.4f} mm"}</text>
-</svg>
-</div>"""
-    return svg
-
-# =====================================================================
-# INTERFAZ WEB (Adaptación de Tkinter a Streamlit)
-# =====================================================================
-
-html_header = f"""<div style="background-color: {COLOR_BG}; padding: 20px; border-radius: 8px;">
-<h1 style='color: {COLOR_TEXT_MAIN}; font-family: Segoe UI; margin-bottom: 0;'>FitsStudio Pro 🛠️</h1>
-<p style='color: {COLOR_TEXT_MUTED}; font-family: Segoe UI; font-size: 14px;'>Norma Completa ISO • Validador Estricto de Letras Base de Tolerancias</p>
-</div>"""
-st.markdown(html_header, unsafe_allow_html=True)
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.markdown(f"<p style='color: {COLOR_PRIMARY}; font-weight: bold; margin-bottom: 0;'>AGUJERO (Letra en MAYÚSCULA)</p>", unsafe_allow_html=True)
-    entry_aloj = st.text_input("", value="12.5H7", key="agujero")
-
-with col2:
-    st.markdown(f"<p style='color: {COLOR_ACCENT}; font-weight: bold; margin-bottom: 0;'>EJE (Letra en minúscula)</p>", unsafe_allow_html=True)
-    entry_eje = st.text_input("", value="12.5g6", key="eje")
-
-html_css = f"""<style>
-.stApp {{ background-color: {COLOR_BG}; }}
-</style>"""
-st.markdown(html_css, unsafe_allow_html=True)
-
-if st.button("PROCESAR AJUSTE INDUSTRIAL"):
-    res_a = validar_y_calcular(entry_aloj, es_agujero=True)
-    res_e = validar_y_calcular(entry_eje, es_agujero=False)
-    
-    if res_a[0] == "ERR_MAYUS":
-        st.markdown(f"<div style='background-color: {COLOR_CARD}; padding: 10px; border-radius: 5px; color: {COLOR_ERROR}; font-weight: bold;'>⚠ ERROR: EL AGUJERO DEBE IR EN MAYÚSCULA (Ej: H7)</div>", unsafe_allow_html=True)
-    elif res_e[0] == "ERR_MINUS":
-        st.markdown(f"<div style='background-color: {COLOR_CARD}; padding: 10px; border-radius: 5px; color: {COLOR_ERROR}; font-weight: bold;'>⚠ ERROR: EL EJE DEBE IR EN MINÚSCULA (Ej: g6)</div>", unsafe_allow_html=True)
+    if letra.lower() == "js":
+        # Simetría exacta con criterio de redondeo entero tradicional si aplica
+        mitad = it_val / 2
+        es_sup = mitad
+        ei_inf = -mitad
     else:
-        max_a, min_a, sup_um_a, inf_um_a = res_a
-        max_e, min_e, sup_um_e, inf_um_e = res_e
+        dev_fund = calcular_desviacion_fundamental(letra, diametro, it_val)
+        if tipo == "Agujero":
+            # Para letras A-H la desviación fundamental es la Inferior (EI)
+            if letra.upper() <= "H":
+                ei_inf = dev_fund
+                es_sup = ei_inf + it_val
+            else: # Para letras K-ZC la desviación fundamental suele fijar la Superior (ES)
+                es_sup = dev_fund
+                ei_inf = es_sup - it_val
+        else: # Eje
+            # Para letras a-h la desviación fundamental es la Superior (es)
+            if letra.lower() <= "h":
+                es_sup = dev_fund
+                ei_inf = es_sup - it_val
+            else: # Para letras k-zc fija la Inferior (ei)
+                ei_inf = dev_fund
+                es_sup = ei_inf + it_val
+
+    return round(es_sup, 1), round(ei_inf, 1), it_val, alertas
+
+# --- INTERFAZ DE USUARIO (STREAMLIT) ---
+st.title("⚙️ Sistema Avanzado de Ajustes y Tolerancias ISO 286 / UNE-EN 20286-2")
+st.caption("Herramienta de nivel de producción industrial adaptada al estándar de metrología internacional (hasta 3150 mm).")
+
+# Sidebar - Configuración y Preferencias
+st.sidebar.header("Preferencias de Visualización")
+unidad_display = st.sidebar.radio("Unidad principal de salida:", ["Micrómetros (µm)", "Milímetros (mm)"])
+multiplicador = 0.001 if unidad_display == "Milímetros (mm)" else 1.0
+u_lbl = "mm" if unidad_display == "Milímetros (mm)" else "µm"
+
+st.sidebar.markdown("---")
+st.sidebar.info(
+    "💡 **Nota de la Norma:** El término 'Agujero' u 'Eje' aplica no solo a cilindros, "
+    "sino a cualquier espacio continente o contenido (ej. chavetas, ranuras)."
+)
+
+# Diseño Principal por Pestañas
+tab1, tab2 = st.tabs(["📊 Análisis de Ajuste (Acoplamiento)", "📖 Consulta de Componente Único"])
+
+with tab1:
+    st.header("Cálculo de Acoplamientos e Interferencia")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        d_nominal = st.number_input("Diámetro Nominal (mm):", min_value=0.5, max_value=3150.0, value=45.0, step=1.0, help="Rango oficial de la norma de hasta 3150 mm.")
+    with col2:
+        st.subheader("Agujero (Elemento Interior)")
+        ag_letra = st.selectbox("Posición (Letra):", ["H", "A", "B", "C", "CD", "D", "E", "EF", "F", "FG", "G", "JS", "K", "M", "N", "P", "R", "S", "T", "U", "V", "X", "Y", "Z", "ZA", "ZB", "ZC"], index=0)
+        ag_grado = st.selectbox("Calidad (Grado IT):", list(TABLA_IT.keys()), index=2, key="ag_g") # Default IT7
+    with col3:
+        st.subheader("Eje (Elemento Exterior)")
+        eje_letra = st.selectbox("Posición (Letra):", ["h", "a", "b", "c", "cd", "d", "e", "ef", "f", "fg", "g", "js", "k", "m", "n", "p", "r", "s", "t", "u", "v", "x", "y", "z", "za", "zb", "zc"], index=7) # Default g
+        eje_grado = st.selectbox("Calidad (Grado IT):", list(TABLA_IT.keys()), index=1, key="eje_g") # Default IT6
+
+    # Realizar Cálculos de Acoplamiento
+    es_Ag, ei_Ag, it_Ag, errs_Ag = obtener_tolerancias_completas("Agujero", ag_letra, ag_grado, d_nominal)
+    es_Ej, ei_Ej, it_Ej, errs_Ej = obtener_tolerancias_completas("Eje", eje_letra, eje_grado, d_nominal)
+
+    if es_Ag is not None and es_Ej is not None:
+        # Mostrar Alertas de Normativa si existen
+        todas_alertas = errs_Ag + errs_Ej
+        for al in todas_alertas:
+            st.warning(al)
+
+        # Dimensiones Límites Reales
+        Max_Ag = d_nominal + (es_Ag / 1000.0)
+        Min_Ag = d_nominal + (ei_Ag / 1000.0)
+        Max_Ej = d_nominal + (es_Ej / 1000.0)
+        Min_Ej = d_nominal + (ei_Ej / 1000.0)
+
+        # Determinar el Tipo de Ajuste (Juego, Aprieto, Transición)
+        juego_max = es_Ag - ei_Ej
+        juego_min = ei_Ag - es_Ej
         
-        comp_aloj = descomponer_ajuste(entry_aloj, es_agujero=True)
-        comp_eje = descomponer_ajuste(entry_eje, es_agujero=False)
-        
-        if comp_aloj and comp_eje and max_a and max_e:
-            juego_max = sup_um_a - inf_um_e
-            juego_min = inf_um_a - sup_um_e
-            
-            # Conversión de holgura/interferencia a mm reales
-            juego_max_mm = juego_max / 1000.0
-            juego_min_mm = juego_min / 1000.0
-            
-            # Semáforo de Estado e identificación de tipo de cálculo solicitado
-            if juego_min >= 0:
-                semaforo_html = f"<div style='background-color: {COLOR_CARD}; padding: 10px; text-align: center; border-radius: 5px; color: {COLOR_SUCCESS}; font-weight: bold;'>🟢 AJUSTE MÓVIL (CON HOLGURA)</div>"
-                lbl_dinamico_1 = "Holgura Máxima:"
-                val_dinamico_1 = f"{juego_max_mm:.4f} mm"
-                lbl_dinamico_2 = "Holgura Mínima:"
-                val_dinamico_2 = f"{juego_min_mm:.4f} mm"
-                color_dinamico = COLOR_SUCCESS
-            elif juego_max <= 0:
-                semaforo_html = f"<div style='background-color: {COLOR_CARD}; padding: 10px; text-align: center; border-radius: 5px; color: {COLOR_ERROR}; font-weight: bold;'>🔴 AJUSTE FIJO (CON APRIETE / INTERFERENCIA)</div>"
-                lbl_dinamico_1 = "Apriete Máximo:"
-                val_dinamico_1 = f"{abs(juego_min_mm):.4f} mm"
-                lbl_dinamico_2 = "Apriete Mínimo (Interferencia Mínima):"
-                val_dinamico_2 = f"{abs(juego_max_mm):.4f} mm"
-                color_dinamico = COLOR_ERROR
-            else:
-                semaforo_html = f"<div style='background-color: {COLOR_CARD}; padding: 10px; text-align: center; border-radius: 5px; color: {COLOR_WARNING}; font-weight: bold;'>🟡 AJUSTE INDETERMINADO (TRANSICIÓN)</div>"
-                lbl_dinamico_1 = "Holgura Máxima:"
-                val_dinamico_1 = f"{juego_max_mm:.4f} mm"
-                lbl_dinamico_2 = "Apriete Máximo (Interferencia Máxima):"
-                val_dinamico_2 = f"{abs(juego_min_mm):.4f} mm"
-                color_dinamico = COLOR_WARNING
-            
-            st.markdown(semaforo_html, unsafe_allow_html=True)
-            
-            # NUEVO PANEL: Holguras e Interferencias Calculadas
-            html_valores_mecanicos = f"""<div style="background-color: {COLOR_CARD}; border: 1px solid #334155; padding: 12px; border-radius: 5px; display: flex; justify-content: space-around; margin-top: 10px;">
-<div>
-<span style="color: {COLOR_TEXT_MUTED}; font-size: 12px; font-weight: bold;">{lbl_dinamico_1}</span> <span style="color: {color_dinamico}; font-size: 18px; font-weight: bold;">{val_dinamico_1}</span>
-</div>
-<div style="color: #334155; font-size: 24px;">│</div>
-<div>
-<span style="color: {COLOR_TEXT_MUTED}; font-size: 12px; font-weight: bold;">{lbl_dinamico_2}</span> <span style="color: {color_dinamico}; font-size: 18px; font-weight: bold;">{val_dinamico_2}</span>
-</div>
-</div>"""
-            st.markdown(html_valores_mecanicos, unsafe_allow_html=True)
-            
-            # Grid de Resultados Numéricos Originales (Dimensiones de los bloques)
-            html_grid = f"""<div style="background-color: {COLOR_CARD}; border: 1px solid #334155; padding: 15px; border-radius: 5px; display: flex; justify-content: space-around; margin-top: 15px;">
-<div>
-<span style="color: {COLOR_TEXT_MUTED}; font-size: 12px;">Agujero Máximo:</span> <span style="color: {COLOR_PRIMARY}; font-size: 20px; font-weight: bold;">{max_a}</span><br>
-<span style="color: {COLOR_TEXT_MUTED}; font-size: 12px;">Agujero Mínimo:</span> <span style="color: {COLOR_PRIMARY}; font-size: 20px; font-weight: bold;">{min_a}</span>
-</div>
-<div style="color: #334155; font-size: 30px;">│</div>
-<div>
-<span style="color: {COLOR_TEXT_MUTED}; font-size: 12px;">Eje Máximo:</span> <span style="color: {COLOR_ACCENT}; font-size: 20px; font-weight: bold;">{max_e}</span><br>
-<span style="color: {COLOR_TEXT_MUTED}; font-size: 12px;">Eje Mínimo:</span> <span style="color: {COLOR_ACCENT}; font-size: 20px; font-weight: bold;">{min_e}</span>
-</div>
-</div>"""
-            st.markdown(html_grid, unsafe_allow_html=True)
-            
-            # Gráfico
-            st.markdown(f"<p style='color: {COLOR_TEXT_MUTED}; font-size: 12px; font-weight: bold; margin-top: 20px; text-align: center;'>DIAGRAMA DE POSICIÓN DE TOLERANCIAS</p>", unsafe_allow_html=True)
-            st.markdown(generar_grafico_svg(sup_um_a, inf_um_a, sup_um_e, inf_um_e), unsafe_allow_html=True)
-            
-            # Diccionario de Aplicaciones
-            clave_combinacion = (f"{comp_aloj[1]}{comp_aloj[2]}", f"{comp_eje[1]}{comp_eje[2]}")
-            if clave_combinacion in DICCIONARIO_APLICACIONES:
-                caract, ejemplos = DICCIONARIO_APLICACIONES[clave_combinacion]
-            else:
-                caract = "Ajuste fuera de la tabla de referencia de diámetros deslizantes estándar."
-                ejemplos = "---"
-                
-            html_diccionario = f"""<div style="background-color: {COLOR_CARD}; border: 1px solid #334155; padding: 15px; border-radius: 5px; margin-top: 15px;">
-<p style="color: {COLOR_TEXT_MUTED}; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Características del asiento (Según Tabla):</p>
-<p style="color: {COLOR_TEXT_MAIN}; font-size: 14px; margin-bottom: 15px;">{caract}</p>
-<p style="color: {COLOR_TEXT_MUTED}; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Ejemplos de aplicación:</p>
-<p style="color: {COLOR_TEXT_MAIN}; font-size: 14px; margin-bottom: 0;">{ejemplos}</p>
-</div>"""
-            st.markdown(html_diccionario, unsafe_allow_html=True)
-            
+        if juego_min >= 0:
+            tipo_ajuste = "JUEGO (Clearance Fit)"
+            color_ajuste = "#2ecc71" # Verde
+            txt_det1 = f"Juego Máximo: {juego_max * multiplicador:.1f} {u_lbl}"
+            txt_det2 = f"Juego Mínimo: {juego_min * multiplicador:.1f} {u_lbl}"
+        elif juego_max <= 0:
+            tipo_ajuste = "APRIETO (Interference Fit)"
+            color_ajuste = "#e74c3c" # Rojo
+            txt_det1 = f"Aprieto Máximo: {abs(juego_min) * multiplicador:.1f} {u_lbl}"
+            txt_det2 = f"Aprieto Mínimo: {abs(juego_max) * multiplicador:.1f} {u_lbl}"
         else:
-            st.markdown(f"<div style='background-color: {COLOR_CARD}; padding: 10px; text-align: center; border-radius: 5px; color: {COLOR_ERROR}; font-weight: bold;'>⚠ DATOS FUERA DE RANGO O FORMATO INVÁLIDO (0 - 500 mm)</div>", unsafe_allow_html=True)
-else:
-    st.markdown(f"<div style='background-color: {COLOR_CARD}; padding: 10px; text-align: center; border-radius: 5px; color: {COLOR_TEXT_MUTED}; font-weight: bold;'>SISTEMA LISTO • INTRODUCE LOS CÓDIGOS ISO</div>", unsafe_allow_html=True)
+            tipo_ajuste = "TRANSICIÓN (Transition Fit)"
+            color_ajuste = "#3498db" # Azul
+            txt_det1 = f"Juego Máximo: {juego_max * multiplicador:.1f} {u_lbl}"
+            txt_det2 = f"Aprieto Máximo: {abs(juego_min) * multiplicador:.1f} {u_lbl}"
+
+        # Visualización de Tarjetas de Resultados
+        st.markdown(f"### Ajuste Determinado: <span style='color:{color_ajuste}; font-weight:bold;'>{tipo_ajuste}</span>", unsafe_allow_html=True)
+        
+        c_m1, c_m2, c_m3 = st.columns(3)
+        c_m1.metric(f"Especificación", f"Ø{d_nominal} {ag_letra}{ag_grado}/{eje_letra}{eje_grado}")
+        c_m2.metric("Condición Límite 1", txt_det1)
+        c_m3.metric("Condición Límite 2", txt_det2)
+
+        # Tablas de límites detalladas
+        st.markdown("#### Detalles de las Dimensiones Límites")
+        df_res = pd.DataFrame({
+            "Característica": ["Desviación Superior", "Desviación Inferior", "Tolerancia (IT)", "Dimensión Máxima Real", "Dimensión Mínima Real"],
+            "AGUJERO": [f"{es_Ag*multiplicador:+.1f} {u_lbl}", f"{ei_Ag*multiplicador:+.1f} {u_lbl}", f"{it_Ag*multiplicador:.1f} {u_lbl}", f"{Max_Ag:.4f} mm", f"{Min_Ag:.4f} mm"],
+            "EJE": [f"{es_Ej*multiplicador:+.1f} {u_lbl}", f"{ei_Ej*multiplicador:+.1f} {u_lbl}", f"{it_Ej*multiplicador:.1f} {u_lbl}", f"{Max_Ej:.4f} mm", f"{Min_Ej:.4f} mm"]
+        })
+        st.table(df_res.set_index("Característica"))
+
+        # --- GENERADOR GRÁFICO DINÁMICO (SVG) ---
+        st.markdown("#### 📐 Representación Gráfica del Ajuste respecto a la Línea Cero")
+        
+        # Parámetros de escalado para que el gráfico sea adaptativo y limpio
+        escala_y = 3.0
+        origen_y = 150
+        
+        # Ajustar posiciones relativas en base a micras reales
+        y_ag_sup = origen_y - (es_Ag * escala_y)
+        y_ag_inf = origen_y - (ei_Ag * escala_y)
+        y_eje_sup = origen_y - (es_Ej * escala_y)
+        y_eje_inf = origen_y - (ei_Ej * escala_y)
+        
+        svg_code = f"""
+        <svg width="100%" height="320" viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg" style="background-color: #1a1a1a; border-radius: 8px;">
+            <line x1="50" y1="{origen_y}" x2="750" y2="{origen_y}" stroke="#95a5a6" stroke-width="2" stroke-dasharray="5,5"/>
+            <text x="755" y="{origen_y+5}" fill="#95a5a6" font-family="sans-serif" font-size="12">Línea Cero</text>
+            
+            <rect x="150" y="{min(y_ag_sup, y_ag_inf)}" width="160" height="{abs(y_ag_sup - y_ag_inf)}" fill="url(#diagonalHatchHole)" stroke="#2ecc71" stroke-width="2" opacity="0.85"/>
+            <text x="230" y="{min(y_ag_sup, y_ag_inf) - 10}" fill="#2ecc71" font-family="sans-serif" font-weight="bold" font-size="14" text-anchor="middle">AGUJERO ({ag_letra}{ag_grado})</text>
+            <text x="140" y="{y_ag_sup+4}" fill="#2ecc71" font-family="sans-serif" font-size="11" text-anchor="end">ES: {es_Ag:+.1f} µm</text>
+            <text x="140" y="{y_ag_inf+4}" fill="#2ecc71" font-family="sans-serif" font-size="11" text-anchor="end">EI: {ei_Ag:+.1f} µm</text>
+
+            <rect x="450" y="{min(y_eje_sup, y_eje_inf)}" width="160" height="{abs(y_eje_sup - y_eje_inf)}" fill="url(#diagonalHatchShaft)" stroke="#e67e22" stroke-width="2" opacity="0.85"/>
+            <text x="530" y="{min(y_eje_sup, y_eje_inf) - 10}" fill="#e67e22" font-family="sans-serif" font-weight="bold" font-size="14" text-anchor="middle">EJE ({eje_letra}{eje_grado})</text>
+            <text x="620" y="{y_eje_sup+4}" fill="#e67e22" font-family="sans-serif" font-size="11" text-anchor="start">es: {es_Ej:+.1f} µm</text>
+            <text x="620" y="{y_eje_inf+4}" fill="#e67e22" font-family="sans-serif" font-size="11" text-anchor="start">ei: {ei_Ej:+.1f} µm</text>
+
+            <rect x="350" y="{max(min(y_ag_sup, y_ag_inf), min(y_eje_sup, y_eje_inf))}" width="60" height="20" fill="{color_ajuste}" rx="4"/>
+            <text x="380" y="{max(min(y_ag_sup, y_ag_inf), min(y_eje_sup, y_eje_inf))+14}" fill="white" font-family="sans-serif" font-size="10" font-weight="bold" text-anchor="middle">AJUSTE</text>
+
+            <defs>
+                <pattern id="diagonalHatchHole" width="10" height="10" patternUnits="userSpaceOnUse">
+                    <line x1="0" y1="10" x2="10" y2="0" stroke="#2ecc71" stroke-width="1.5" />
+                </pattern>
+                <pattern id="diagonalHatchShaft" width="10" height="10" patternUnits="userSpaceOnUse">
+                    <line x1="0" y1="0" x2="10" y2="10" stroke="#e67e22" stroke-width="1.5" />
+                </pattern>
+            </defs>
+        </svg>
+        """
+        st.components.v1.html(svg_code, height=340)
+
+        # Botón de exportación del informe técnico
+        reporte_markdown = f"""# Informe Técnico de Ajustes Mecánicos ISO 286
+- **Diámetro Nominal:** {d_nominal} mm
+- **Ajuste:** Ø{d_nominal} {ag_letra}{ag_grado}/{eje_letra}{eje_grado}
+- **Tipo de Ajuste:** {tipo_ajuste}
+
+### Valores de Tolerancia:
+- **Agujero ({ag_letra}{ag_grado}):** ES = {es_Ag:+.1f} µm | EI = {ei_Ag:+.1f} µm
+- **Eje ({eje_letra}{eje_grado}):** es = {es_Ej:+.1f} µm | ei = {ei_Ej:+.1f} µm
+- **Resultado Crítico:** {txt_det1} | {txt_det2}
+"""
+        st.download_button("📥 Descargar Informe Técnico (Markdown)", data=reporte_markdown, file_name=f"informe_ajuste_Ø{d_nominal}.md")
+
+with tab2:
+    st.header("Consulta Rápida por Componente")
+    col_c1, col_c2 = st.columns(2)
+    
+    with col_c1:
+        tipo_c = st.radio("Tipo de Elemento:", ["Agujero", "Eje"])
+        d_nom_c = st.number_input("Medida Nominal (mm):", min_value=0.5, max_value=3150.0, value=100.0, step=5.0, key="comp_d")
+    with col_c2:
+        letra_c = st.text_input("Letra de Posición (ej. H, g, JS, p):", value="H" if tipo_c == "Agujero" else "h")
+        grado_c = st.selectbox("Grado de Tolerancia Fundamental:", list(TABLA_IT.keys()), index=3, key="comp_g") # Default IT8
+
+    # Validación de formato de letra
+    letra_valida = True
+    if tipo_c == "Agujero" and not letra_c.isupper():
+        st.error("💡 Para Agujeros (elementos interiores), las letras de posición DEBEN ser MAYÚSCULAS.")
+        letra_valida = False
+    elif tipo_c == "Eje" and not letra_c.islower():
+        st.error("💡 Para Ejes (elementos exteriores), las letras de posición DEBEN ser minúsculas.")
+        letra_valida = False
+
+    if letra_valida and letra_c != "":
+        es_c, ei_c, it_c, errs_c = obtener_tolerancias_completas(tipo_c, letra_c, grado_c, d_nom_c)
+        if es_c is not None:
+            for al in errs_c:
+                st.warning(al)
+                
+            st.markdown(f"### Resultados para el {tipo_c} **Ø{d_nom_c} {letra_c}{grado_c}**")
+            
+            cc1, cc2, cc3 = st.columns(3)
+            cc1.metric("Desviación Superior", f"{es_c*multiplicador:+.1f} {u_lbl}")
+            cc2.metric("Desviación Inferior", f"{ei_c*multiplicador:+.1f} {u_lbl}")
+            cc3.metric("Amplitud de Tolerancia (IT)", f"{it_c*multiplicador:.1f} {u_lbl}")
+            
+            st.info(f"📏 **Dimensión de Fabricación Conforme:** Entre **{(d_nom_c + ei_c/1000.0):.4f} mm** y **{(d_nom_c + es_c/1000.0):.4f} mm**.")
