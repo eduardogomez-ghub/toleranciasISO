@@ -2,7 +2,7 @@ import streamlit as st
 import re
 
 # =====================================================================
-# CONFIGURACIÓN ULTRA-COMPACTA PARA PANTALLA ÚNICA
+# CONFIGURACIÓN EQUILIBRADA (Todo en 1 pantalla, tamaño legible)
 # =====================================================================
 st.set_page_config(
     page_title="FitsStudio Pro",
@@ -11,16 +11,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Inyección CSS extrema para matar espacios en blanco y paddings nativos
+# Ajuste de márgenes limpio pero sin ahogar el diseño
 st.markdown("""
     <style>
-    .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; max-width: 95% !important; }
-    h1 { margin-bottom: 0rem !important; padding-bottom: 0rem !important; font-size: 24px !important; }
-    div[data-testid="stVerticalBlock"] > div { font-size: 13px !important; }
-    div[data-testid="stMetricValue"] { font-family: 'Consolas', monospace; font-size: 20px !important; font-weight: bold; }
-    div[data-testid="stMetricLabel"] { font-size: 11px !important; }
-    .stAlert { padding: 8px !important; margin-bottom: 4px !important; }
-    hr { margin: 8px 0 !important; }
+    .block-container { padding-top: 2rem !important; padding-bottom: 2rem !important; max-width: 90% !important; }
+    h2 { margin-top: 0rem !important; font-size: 28px !important; }
+    div[data-testid="stMetricValue"] { font-family: 'Consolas', monospace; font-size: 24px !important; font-weight: bold; }
+    div[data-testid="stMetricLabel"] { font-size: 13px !important; color: #94a3b8; }
+    .stAlert { padding: 12px !important; font-size: 15px !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -115,14 +113,15 @@ def calcular_limites(nominal, letra, grado, es_agujero):
     min_real = nominal + (inf_um / 1000.0)
     return max_real, min_real, sup_um, inf_um
 
-# --- LÍNEA SUPERIOR ENTRADA ---
-st.markdown("### FitsStudio Pro 🛠️ <span style='font-size:12px; font-weight:normal; color:#94a3b8;'>Norma ISO</span>", unsafe_allow_html=True)
+# --- TÍTULO DE LA APLICACIÓN ---
+st.markdown("<h2>FitsStudio Pro 🛠️ <span style='font-size:14px; font-weight:normal; color:#94a3b8;'>• Sistema de Tolerancias ISO</span></h2>", unsafe_allow_html=True)
 
+# --- PANEL DE ENTRADA DE AJUSTES ---
 col_in1, col_in2 = st.columns(2)
 with col_in1:
-    entry_aloj = st.text_input("AGUJERO (Letra MAYÚSCULA)", "12.5H7", label_visibility="collapsed")
+    entry_aloj = st.text_input("Ajuste del AGUJERO (Ej: 12.5H7)", "12.5H7")
 with col_in2:
-    entry_eje = st.text_input("EJE (Letra minúscula)", "12.5g6", label_visibility="collapsed")
+    entry_eje = st.text_input("Ajuste del EJE (Ej: 12.5g6)", "12.5g6")
 
 comp_aloj = descomponer_ajuste(entry_aloj, es_agujero=True)
 comp_eje = descomponer_ajuste(entry_eje, es_agujero=False)
@@ -130,76 +129,83 @@ comp_eje = descomponer_ajuste(entry_eje, es_agujero=False)
 # --- PROCESAMIENTO ---
 error = False
 if comp_aloj == "ERR_MAYUS":
-    st.error("⚠ AGUJERO EN MAYÚSCULA (Ej: H7)")
+    st.error("⚠ ERROR: El código del Agujero debe contener letras MAYÚSCULAS (Ej: H7).")
     error = True
 elif comp_eje == "ERR_MINUS":
-    st.error("⚠ EJE EN MINÚSCULA (Ej: g6)")
+    st.error("⚠ ERROR: El código del Eje debe contener letras minúsculas (Ej: g6).")
     error = True
 elif not comp_aloj or not comp_eje:
-    st.warning("Introduce códigos válidos (Ej: 12.5H7 y 12.5g6)")
+    st.warning("Introduce combinaciones ISO válidas para calcular (Formato: Diámetro + Letra + Calidad).")
     error = True
 
 if not error:
     nom_a, letra_a, grado_a = comp_aloj
     nom_e, letra_e, grado_e = comp_eje
     
-    res_a = calcular_limites(nom_a, letra_a, Urban_a := grado_a, es_agujero=True)
+    res_a = calcular_limites(nom_a, letra_a, grado_a, es_agujero=True)
     res_e = calcular_limites(nom_e, letra_e, grado_e, es_agujero=False)
     
     if not res_a or not res_e:
-        st.error("⚠ RANGO FUERA DE TABLA (0 - 500 mm)")
+        st.error("⚠ DATOS FUERA DE RANGO: Diámetro debe ser entre 0 y 500 mm, o la calidad ISO no está registrada.")
     else:
         max_a, min_a, sup_um_a, inf_um_a = res_a
         max_e, min_e, sup_um_e, inf_um_e = res_e
         
-        # Tipo de ajuste
         juego_max = sup_um_a - inf_um_e
         juego_min = inf_um_a - sup_um_e
         
+        # Banner del tipo de ajuste
         if juego_min >= 0:
-            st.success(f"🟢 AJUSTE MÓVIL (HOLGURA)")
+            st.success("🟢 AJUSTE MÓVIL (CON HOLGURA RECONOCIDA)")
         elif juego_max <= 0:
-            st.error(f"🔴 AJUSTE FIJO (APRIETE)")
+            st.error("🔴 AJUSTE FIJO (CON APRIETE POR INTERFERENCIA)")
         else:
-            st.warning(f"🟡 AJUSTE INDETERMINADO (TRANSICIÓN)")
+            st.warning("🟡 AJUSTE INDETERMINADO (ZONA DE TRANSICIÓN)")
             
+        st.divider()
+
         # =====================================================================
-        # 📊 ARQUITECTURA EN COLUMNAS PARA EL CUERPO CENTRAL (TODO EN PARALELO)
+        # 📊 ARQUITECTURA DISTRIBUIDA (Gráfico amplio + Métricas cómodas)
         # =====================================================================
-        col_graf, col_num_a, col_num_e = st.columns([2, 1, 1])
+        col_graf, col_num_a, col_num_e = st.columns([1.8, 1, 1])
         
         with col_graf:
-            # Gráfico con altura reducida a 200px para que encaje
+            st.markdown("<b style='color:#94a3b8; font-size:14px;'>Zonas de Tolerancia (µm)</b>", unsafe_allow_html=True)
+            # Gráfico con altura de 230px, cómodo para vista
             html_grafico = f"""
-            <div style="display: flex; justify-content: center; align-items: flex-end; background-color: #1e293b; padding: 15px; border-radius: 6px; height: 180px; gap: 30px; border: 1px solid #334155; position: relative;">
-                <div style="position: absolute; width: 100%; height: 2px; background-color: #ef4444; bottom: 90px; left: 0; z-index: 1;"></div>
+            <div style="display: flex; justify-content: center; align-items: flex-end; background-color: #1e293b; padding: 20px; border-radius: 8px; height: 230px; gap: 40px; border: 1px solid #334155; position: relative;">
                 
-                <div title="Agujero: {max_a:.4f} / {min_a:.4f}mm" style="position: relative; width: 90px; height: {max(15, abs(sup_um_a - inf_um_a) * 2)}px; bottom: {90 + (inf_um_a * 2)}px; background: linear-gradient(180deg, #3b82f6, #1d4ed8); border: 1px solid #60a5fa; border-radius: 3px; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2; color: white; font-family: sans-serif; font-weight: bold; font-size:11px;">
-                    <span>AGUJERO ({letra_a}{grado_a})</span>
+                <div style="position: absolute; width: 100%; height: 2px; background-color: #ef4444; bottom: 115px; left: 0; z-index: 1;"></div>
+                
+                <div title="Agujero: Máx {max_a:.4f}mm / Mín {min_a:.4f}mm" style="position: relative; width: 110px; height: {max(25, abs(sup_um_a - inf_um_a) * 2.5)}px; bottom: {115 + (inf_um_a * 2.5)}px; background: linear-gradient(180deg, #3b82f6, #1d4ed8); border: 2px solid #60a5fa; border-radius: 4px; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2; color: white; font-family: sans-serif; font-weight: bold; font-size:13px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                    <span>AGUJERO</span>
+                    <span style="font-size:11px; font-weight:normal; opacity:0.8;">{letra_a}{grado_a}</span>
                 </div>
                 
-                <div title="Eje: {max_e:.4f} / {min_e:.4f}mm" style="position: relative; width: 90px; height: {max(15, abs(sup_um_e - inf_um_e) * 2)}px; bottom: {90 + (inf_um_e * 2)}px; background: linear-gradient(180deg, #f97316, #c2410c); border: 1px solid #fb923c; border-radius: 3px; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2; color: white; font-family: sans-serif; font-weight: bold; font-size:11px;">
-                    <span>EJE ({letra_e}{grado_e})</span>
+                <div title="Eje: Máx {max_e:.4f}mm / Mín {min_e:.4f}mm" style="position: relative; width: 110px; height: {max(25, abs(sup_um_e - inf_um_e) * 2.5)}px; bottom: {115 + (inf_um_e * 2.5)}px; background: linear-gradient(180deg, #f97316, #c2410c); border: 2px solid #fb923c; border-radius: 4px; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2; color: white; font-family: sans-serif; font-weight: bold; font-size:13px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                    <span>EJE</span>
+                    <span style="font-size:11px; font-weight:normal; opacity:0.8;">{letra_e}{grado_e}</span>
                 </div>
             </div>
             """
             st.markdown(html_grafico, unsafe_allow_html=True)
         
         with col_num_a:
-            st.markdown("<b style='color:#60a5fa;'>AGUJERO</b>", unsafe_allow_html=True)
-            st.metric("Máximo", f"{max_a:.4f} mm", delta=f"{sup_um_a/1000.0:+.4f}", delta_color="off")
-            st.metric("Mínimo", f"{min_a:.4f} mm", delta=f"{inf_um_a/1000.0:+.4f}", delta_color="off")
+            st.markdown("<b style='color:#60a5fa; font-size:15px;'>Cotas AGUJERO</b>", unsafe_allow_html=True)
+            st.metric("Límite Superior", f"{max_a:.4f} mm", delta=f"{sup_um_a/1000.0:+.4f} mm", delta_color="off")
+            st.metric("Límite Inferior", f"{min_a:.4f} mm", delta=f"{inf_um_a/1000.0:+.4f} mm", delta_color="off")
             
         with col_num_e:
-            st.markdown("<b style='color:#fb923c;'>EJE</b>", unsafe_allow_html=True)
-            st.metric("Máximo", f"{max_e:.4f} mm", delta=f"{sup_um_e/1000.0:+.4f}", delta_color="off")
-            st.metric("Mínimo", f"{min_e:.4f} mm", delta=f"{inf_um_e/1000.0:+.4f}", delta_color="off")
+            st.markdown("<b style='color:#fb923c; font-size:15px;'>Cotas EJE</b>", unsafe_allow_html=True)
+            st.metric("Límite Superior", f"{max_e:.4f} mm", delta=f"{sup_um_e/1000.0:+.4f} mm", delta_color="off")
+            st.metric("Límite Inferior", f"{min_e:.4f} mm", delta=f"{inf_um_e/1000.0:+.4f} mm", delta_color="off")
             
-        # --- SECCIÓN APLICACIÓN ABAJO (LÍNEA ÚNICA) ---
+        # --- SECCIÓN APLICACIÓN MECÁNICA ---
         st.divider()
         clave_combinacion = (f"{letra_a}{grado_a}", f"{letra_e}{grado_e}")
+        
         if clave_combinacion in DICCIONARIO_APLICACIONES:
             caract, ejemplos = DICCIONARIO_APLICACIONES[clave_combinacion]
-            st.markdown(f"⚙️ **Asiento:** {caract} | **Uso típico:** *{ejemplos}*")
+            st.info(f"⚙️ **Aplicación Recomendada:** {caract}  \n📍 **Ejemplos en Taller:** *{ejemplos}*")
         else:
-            st.markdown("⚙️ *Ajuste fuera de la guía de emparejamientos comunes en la norma.*")
+            st.markdown("⚙️ *Nota: Esta combinación de letras y calidades se encuentra fuera de los acoplamientos mecánicos preferentes de la guía.*")
