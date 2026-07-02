@@ -79,23 +79,29 @@ if match_a and match_e:
     with col_g:
         import streamlit.components.v1 as components
         
+        # Ajuste de escala: si los valores son muy pequeños (micras), 
+        # aumenta este factor para ver mejor las diferencias.
         escala = 2 
-        # Aseguramos que el contenido HTML esté bien formado
+        
         html_code = f"""
-        <div style="position: relative; height: 200px; border-left: 2px dashed #94a3b8; margin-left: 50px; background: #0e1117;">
-            <div style="position: absolute; top: 100px; width: 100%; border-top: 1px solid #ffffff; z-index: 1;"></div>
-            <span style="position: absolute; top: 90px; left: -45px; color: #ffffff; font-size: 10px;">Ø Nom</span>
+        <div style="position: relative; height: 250px; border-left: 2px dashed #94a3b8; margin-left: 60px; background: #0e1117; font-family: sans-serif;">
+            <div style="position: absolute; top: 125px; width: 100%; border-top: 2px solid #ffffff; z-index: 1;"></div>
+            <span style="position: absolute; top: 115px; left: -55px; color: #ffffff; font-weight: bold; font-size: 14px;">Ø Nom</span>
             
-            <div style="position: absolute; top: {100 - (s_a * escala)}px; left: 20px; width: 60px; 
-                        height: {abs(s_a - i_a) * escala}px; background: rgba(59, 130, 246, 0.5); border: 1px solid #3b82f6;">
+            <div style="position: absolute; top: {125 - (s_a * escala)}px; left: 20px; width: 80px; 
+                        height: {max(5, abs(s_a - i_a) * escala)}px; background: rgba(59, 130, 246, 0.5); 
+                        border: 2px solid #3b82f6; display: flex; align-items: center; justify-content: center;">
+                <span style="color: white; font-weight: bold; font-size: 16px;">Agujero</span>
             </div>
             
-            <div style="position: absolute; top: {100 - (s_e * escala)}px; left: 100px; width: 60px; 
-                        height: {abs(s_e - i_e) * escala}px; background: rgba(249, 115, 22, 0.5); border: 1px solid #f97316;">
+            <div style="position: absolute; top: {125 - (s_e * escala)}px; left: 120px; width: 80px; 
+                        height: {max(5, abs(s_e - i_e) * escala)}px; background: rgba(249, 115, 22, 0.5); 
+                        border: 2px solid #f97316; display: flex; align-items: center; justify-content: center;">
+                <span style="color: white; font-weight: bold; font-size: 16px;">Eje</span>
             </div>
         </div>
         """
-        components.html(html_code, height=220)
+        components.html(html_code, height=260)
     with col_1:
         st.metric("Agujero Máx", f"{max_a:.4f}mm")
         st.metric("Agujero Mín", f"{min_a:.4f}mm")
