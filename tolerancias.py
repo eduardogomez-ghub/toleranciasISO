@@ -9,6 +9,31 @@ st.set_page_config(
     layout="wide"
 )
 
+# --- INYECCIÓN DE CSS PARA COMPACTAR LA INTERFAZ (Reducción de márgenes y gaps) ---
+st.markdown("""
+    <style>
+    /* Reducir el acolchado superior e inferior del contenedor principal */
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+    /* Reducir el espacio (gap) por defecto entre elementos de Streamlit */
+    div[data-testid="stVerticalBlock"] {
+        gap: 0.6rem !important;
+    }
+    /* Compactar márgenes en títulos y subtítulos */
+    h1, h2, h3, h4 {
+        margin-top: 0.4rem !important;
+        margin-bottom: 0.2rem !important;
+        padding-bottom: 0px !important;
+    }
+    /* Ajustar el espaciado de las tablas y widgets */
+    .stTable, .stDataFrame, div[data-testid="stBlock"] {
+        margin-bottom: 0.2rem !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- MOTOR DE DATOS OFICIALES UNE-EN 20286-2 ---
 RANGOS_DIAMETROS = [
     (0, 3), (3, 6), (6, 10), (10, 18), (18, 30), (30, 50), (50, 80), (80, 120),
@@ -213,14 +238,12 @@ def dibujar_ajuste_completo_svg(d_nominal, es_Ag, ei_Ag, es_Ej, ei_Ej, val_real_
 
 # --- INTERFAZ DE USUARIO (STREAMLIT) ---
 st.title("⚙️ Sistema Avanzado de Ajustes y Tolerancias ISO 286")
-st.caption("Herramienta de precisión industrial optimizada para metrología y producción mecánica.")
 
 # Definición de pestañas
 tab2, tab1 = st.tabs(["📖 Consulta de Componente Único", "📊 Análisis de Ajuste Completo"])
 
 # --- PESTAÑA 1: CONSULTA DE COMPONENTE ÚNICO (DEFAULT) ---
 with tab2:
-    st.header("Consulta Rápida por Componente")
     col_c1, col_c2, col_c3 = st.columns(3)
     
     with col_c1:
@@ -260,7 +283,7 @@ with tab2:
             else:
                 cc3.metric("Evaluación de Calidad", "FUERA de Rango", delta="Pieza Rechazada", delta_color="inverse")
             
-            # --- NUEVA TABLA COMPACTA DE DIMENSIONES LÍMITES ---
+            # --- TABLA COMPACTA DE DIMENSIONES LÍMITES ---
             st.markdown("#### Detalles de las Dimensiones Límites")
             df_res_c = pd.DataFrame({
                 "Métrica del Componente": ["Cota Máxima Conforme", "Cota Mínima Conforme"],
