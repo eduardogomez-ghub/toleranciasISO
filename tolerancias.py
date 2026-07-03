@@ -113,9 +113,8 @@ def obtener_tolerancias_completas(tipo, letra, grado, diametro):
 # --- GENERADORES GRÁFICOS CON AUTOESCALA DINÁMICA ---
 def dibujar_componente_svg(tipo, nominal, es, ei, real, status):
     origen_y = 110
-    # Autoescala basada en la desviación máxima para evitar desbordamientos del lienzo SVG
     max_desviacion = max(abs(es), abs(ei), abs(real - nominal), 0.005)
-    escala_y = 75.0 / max_desviacion  # Ajusta el zoom dinámicamente para usar 75px de margen seguro
+    escala_y = 75.0 / max_desviacion  
     
     y_sup = origen_y - (es * escala_y)
     y_inf = origen_y - (ei * escala_y)
@@ -153,9 +152,8 @@ def dibujar_componente_svg(tipo, nominal, es, ei, real, status):
 
 def dibujar_ajuste_completo_svg(d_nominal, es_Ag, ei_Ag, es_Ej, ei_Ej, val_real_ag, val_real_ej, status_ag, status_ej, ag_letra, ag_grado, eje_letra, eje_grado):
     origen_y = 150
-    # Autoescala global del acoplamiento basada en la peor desviación absoluta
     max_val_fit = max(abs(es_Ag), abs(ei_Ag), abs(es_Ej), abs(ei_Ej), abs(val_real_ag - d_nominal), abs(val_real_ej - d_nominal), 0.005)
-    escala_y = 110.0 / max_val_fit  # Zoom dinámico balanceado para el contenedor de 320px de altura
+    escala_y = 110.0 / max_val_fit  
     
     y_ag_sup = origen_y - (es_Ag * escala_y)
     y_ag_inf = origen_y - (ei_Ag * escala_y)
@@ -164,7 +162,6 @@ def dibujar_ajuste_completo_svg(d_nominal, es_Ag, ei_Ag, es_Ej, ei_Ej, val_real_
     
     svg_lineas_reales = ""
     
-    # Línea real del agujero
     y_real_ag = origen_y - ((val_real_ag - d_nominal) * escala_y)
     color_real_ag = "#2ecc71" if status_ag else "#e74c3c"
     if 0 <= y_real_ag <= 320:
@@ -175,7 +172,6 @@ def dibujar_ajuste_completo_svg(d_nominal, es_Ag, ei_Ag, es_Ej, ei_Ej, val_real_
         <text x="320" y="{y_real_ag}" fill="{color_real_ag}" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle" dominant-baseline="middle">Real: {val_real_ag:.3f}</text>
         """
     
-    # Línea real del eje
     y_real_ej = origen_y - ((val_real_ej - d_nominal) * escala_y)
     color_real_ej = "#2ecc71" if status_ej else "#e74c3c"
     if 0 <= y_real_ej <= 320:
@@ -219,7 +215,7 @@ def dibujar_ajuste_completo_svg(d_nominal, es_Ag, ei_Ag, es_Ej, ei_Ej, val_real_
 st.title("⚙️ Sistema Avanzado de Ajustes y Tolerancias ISO 286")
 st.caption("Herramienta de precisión industrial optimizada para metrología y producción mecánica.")
 
-# Definición de pestañas (Pestaña de consulta individual pasa a ser la default por posición)
+# Definición de pestañas
 tab2, tab1 = st.tabs(["📖 Consulta de Componente Único", "📊 Análisis de Ajuste Completo"])
 
 # --- PESTAÑA 1: CONSULTA DE COMPONENTE ÚNICO (DEFAULT) ---
@@ -264,11 +260,19 @@ with tab2:
             else:
                 cc3.metric("Evaluación de Calidad", "FUERA de Rango", delta="Pieza Rechazada", delta_color="inverse")
             
+            # --- NUEVA TABLA COMPACTA DE DIMENSIONES LÍMITES ---
+            st.markdown("#### Detalles de las Dimensiones Límites")
+            df_res_c = pd.DataFrame({
+                "Métrica del Componente": ["Cota Máxima Conforme", "Cota Mínima Conforme"],
+                f"{tipo_c.upper()} ({letra_c}{grado_c})": [f"{c_max:.3f} mm", f"{c_min:.3f} mm"]
+            })
+            st.table(df_res_c.set_index("Métrica del Componente"))
+            
             # Gráfica autoescalada del componente con línea real
             st.components.v1.html(dibujar_componente_svg(tipo_c, d_nom_c, es_c, ei_c, val_real_c, status_c), height=230)
 
 
-# --- PESTAÑA 2: ANÁLISIS DE AJUSTE (CON TODAS LAS FUNCIONES RESTAURADAS) ---
+# --- PESTAÑA 2: ANÁLISIS DE AJUSTE ---
 with tab1:
     st.header("Cálculo de Acoplamientos e Interferencia")
     col1, col2, col3 = st.columns(3)
@@ -331,7 +335,7 @@ with tab1:
         })
         st.table(df_res.set_index("Métrica del Componente"))
 
-        # --- SECCIÓN DE METROLOGÍA RE-ACTIVADA ---
+        # --- SECCIÓN DE METROLOGÍA ---
         st.markdown("#### 📍 Validación de Piezas Reales (Metrología de Taller)")
         col_v1, col_v2 = st.columns(2)
         with col_v1:
@@ -349,7 +353,7 @@ with tab1:
             else:
                 st.error(f"🔴 EJE ({val_real_ej:.3f} mm): FUERA de rango (RECHAZO).")
 
-        # --- GRÁFICA DE AJUSTE COMPLETO RE-ESTABLECIDA Y AUTOESCALADA ---
+        # --- GRÁFICA DE AJUSTE COMPLETO ---
         st.markdown("#### 📐 Representación Gráfica del Ajuste")
         svg_code = dibujar_ajuste_completo_svg(
             d_nominal, es_Ag, ei_Ag, es_Ej, ei_Ej, 
@@ -358,7 +362,7 @@ with tab1:
         )
         st.components.v1.html(svg_code, height=340)
 
-        # Botón para descargar informe técnico restaurado
+        # Botón para descargar informe técnico
         reporte_markdown = f"""# Informe Técnico de Ajuste e Inspección - Ø{d_nominal:.3f} {ag_letra}{ag_grado}/{eje_letra}{eje_grado}
 - **Tipo de Ajuste:** {tipo_ajuste}
 - **Límites Agujero:** Máximo = {Max_Ag:.3f} mm | Mínimo = {Min_Ag:.3f} mm
