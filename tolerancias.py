@@ -31,17 +31,21 @@ TABLA_IT = {
 
 def obtener_indice_rango(d):
     for idx, (inf, sup) in enumerate(RANGOS_DIAMETROS):
-        if inf < d <= sup: return idx
+        if inf < d <= sup:
+            return idx
     return -1
 
 def calcular_desviacion_fundamental(letra, d, it_val):
     letra_lower = letra.lower()
     es_agujero = letra.isupper()
+    
     idx = obtener_indice_rango(d)
     if idx == -1: return 0
     inf, sup = RANGOS_DIAMETROS[idx]
     dm = math.sqrt(inf * (sup if sup > 0 else inf)) if inf > 0 else sup / 2
-    if letra_lower in ["js", "h"]: return 0
+
+    if letra_lower in ["js", "h"]:
+        return 0
 
     dev_eje = 0
     if letra_lower == "a":   dev_eje = -(265 + 1.3 * dm) if d <= 120 else -3.5 * dm
@@ -61,11 +65,15 @@ def calcular_desviacion_fundamental(letra, d, it_val):
         potencias = {"t": 30, "u": 45, "v": 60, "x": 80, "y": 100, "z": 140, "za": 180, "zb": 220, "zc": 300}
         dev_eje = potencias[letra_lower] + (dm**0.5)
 
-    return -dev_eje if es_agujero else dev_eje
+    if es_agujero:
+        return -dev_eje
+    else:
+        return dev_eje
 
 def obtener_tolerancias_completas(tipo, letra, grado, diametro):
     idx = obtener_indice_rango(diametro)
-    if idx == -1: return None, None, None, ["Diámetro fuera del rango normativo (0.000 - 3150.000 mm)."]
+    if idx == -1:
+        return None, None, None, ["Diámetro fuera del rango normativo (0.000 - 3150.000 mm)."]
     
     alertas = []
     if diametro > 500 and letra.upper() in ["A", "B", "C", "V", "X", "Y", "Z", "ZA", "ZB", "ZC"]:
@@ -78,24 +86,36 @@ def obtener_tolerancias_completas(tipo, letra, grado, diametro):
         alertas.append(f"⚠️ Las clases {letra}{grado} no se representan para <= 18.000 mm. Se recomienda usar Z.")
 
     it_val = TABLA_IT[grado][idx]
+    
     if letra.lower() == "js":
-        es_sup, ei_inf = it_val / 2, -it_val / 2
+        mitad = it_val / 2
+        es_sup = mitad
+        ei_inf = -mitad
     else:
         dev_fund = calcular_desviacion_fundamental(letra, diametro, it_val)
         if tipo == "Agujero":
-            if letra.upper() <= "H": ei_inf = dev_fund; es_sup = ei_inf + it_val
-            else: es_sup = dev_fund; ei_inf = es_sup - it_val
+            if letra.upper() <= "H":
+                ei_inf = dev_fund
+                es_sup = ei_inf + it_val
+            else:
+                es_sup = dev_fund
+                ei_inf = es_sup - it_val
         else:
-            if letra.lower() <= "h": es_sup = dev_fund; ei_inf = es_sup - it_val
-            else: ei_inf = dev_fund; es_sup = ei_inf + it_val
+            if letra.lower() <= "h":
+                es_sup = dev_fund
+                ei_inf = es_sup - it_val
+            else:
+                ei_inf = dev_fund
+                es_sup = ei_inf + it_val
 
     return es_sup / 1000.0, ei_inf / 1000.0, it_val / 1000.0, alertas
 
 # --- GENERADORES GRÁFICOS CON AUTOESCALA DINÁMICA ---
 def dibujar_componente_svg(tipo, nominal, es, ei, real, status):
     origen_y = 110
+    # Autoescala basada en la desviación máxima para evitar desbordamientos del lienzo SVG
     max_desviacion = max(abs(es), abs(ei), abs(real - nominal), 0.005)
-    escala_y = 75.0 / max_desviacion 
+    escala_y = 75.0 / max_desviacion  # Ajusta el zoom dinámicamente para usar 75px de margen seguro
     
     y_sup = origen_y - (es * escala_y)
     y_inf = origen_y - (ei * escala_y)
@@ -133,8 +153,9 @@ def dibujar_componente_svg(tipo, nominal, es, ei, real, status):
 
 def dibujar_ajuste_completo_svg(d_nominal, es_Ag, ei_Ag, es_Ej, ei_Ej, val_real_ag, val_real_ej, status_ag, status_ej, ag_letra, ag_grado, eje_letra, eje_grado):
     origen_y = 150
+    # Autoescala global del acoplamiento basada en la peor desviación absoluta
     max_val_fit = max(abs(es_Ag), abs(ei_Ag), abs(es_Ej), abs(ei_Ej), abs(val_real_ag - d_nominal), abs(val_real_ej - d_nominal), 0.005)
-    escala_y = 110.0 / max_val_fit
+    escala_y = 110.0 / max_val_fit  # Zoom dinámico balanceado para el contenedor de 320px de altura
     
     y_ag_sup = origen_y - (es_Ag * escala_y)
     y_ag_inf = origen_y - (ei_Ag * escala_y)
@@ -142,6 +163,8 @@ def dibujar_ajuste_completo_svg(d_nominal, es_Ag, ei_Ag, es_Ej, ei_Ej, val_real_
     y_eje_inf = origen_y - (ei_Ej * escala_y)
     
     svg_lineas_reales = ""
+    
+    # Línea real del agujero
     y_real_ag = origen_y - ((val_real_ag - d_nominal) * escala_y)
     color_real_ag = "#2ecc71" if status_ag else "#e74c3c"
     if 0 <= y_real_ag <= 320:
@@ -152,6 +175,7 @@ def dibujar_ajuste_completo_svg(d_nominal, es_Ag, ei_Ag, es_Ej, ei_Ej, val_real_
         <text x="320" y="{y_real_ag}" fill="{color_real_ag}" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle" dominant-baseline="middle">Real: {val_real_ag:.3f}</text>
         """
     
+    # Línea real del eje
     y_real_ej = origen_y - ((val_real_ej - d_nominal) * escala_y)
     color_real_ej = "#2ecc71" if status_ej else "#e74c3c"
     if 0 <= y_real_ej <= 320:
@@ -162,7 +186,7 @@ def dibujar_ajuste_completo_svg(d_nominal, es_Ag, ei_Ag, es_Ej, ei_Ej, val_real_
         <text x="480" y="{y_real_ej}" fill="{color_real_ej}" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle" dominant-baseline="middle">Real: {val_real_ej:.3f}</text>
         """
 
-    return f"""
+    svg_code = f"""
     <svg width="100%" height="320" viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg" style="background-color: #1a1a1a; border-radius: 8px;">
         <defs>
             <pattern id="diagonalHatchHole" width="10" height="10" patternUnits="userSpaceOnUse">
@@ -188,121 +212,109 @@ def dibujar_ajuste_completo_svg(d_nominal, es_Ag, ei_Ag, es_Ej, ei_Ej, val_real_
         {svg_lineas_reales}
     </svg>
     """
+    return svg_code
 
-# --- INTERFAZ DE USUARIO ---
+
+# --- INTERFAZ DE USUARIO (STREAMLIT) ---
 st.title("⚙️ Sistema Avanzado de Ajustes y Tolerancias ISO 286")
-st.caption("Panel de control optimizado para uso rápido por teclado en líneas de inspección técnica.")
+st.caption("Herramienta de precisión industrial optimizada para metrología y producción mecánica.")
 
-# Inicializar control de pestaña persistente e indexable por teclado
-if "pestaña_activa" not in st.session_state:
-    st.session_state.pestaña_activa = 0
+# Definición de pestañas (Pestaña de consulta individual pasa a ser la default por posición)
+tab2, tab1 = st.tabs(["📖 Consulta de Componente Único", "📊 Análisis de Ajuste Completo"])
 
-# Selector superior que simula las pestañas de forma nativa y accesible por teclado vía Tab + Intro/Espacio
-col_t1, col_t2, _ = st.columns([1, 1, 3])
-with col_t1:
-    if st.button("📖 Consulta de Componente Único", use_container_width=True, type="primary" if st.session_state.pestaña_activa == 0 else "secondary"):
-        st.session_state.pestaña_activa = 0
-        st.rerun()
-with col_t2:
-    if st.button("📊 Análisis de Ajuste Completo", use_container_width=True, type="primary" if st.session_state.pestaña_activa == 1 else "secondary"):
-        st.session_state.pestaña_activa = 1
-        st.rerun()
-st.markdown("---")
-
-# --- PESTAÑA 1: CONSULTA DE COMPONENTE ÚNICO ---
-if st.session_state.pestaña_activa == 0:
+# --- PESTAÑA 1: CONSULTA DE COMPONENTE ÚNICO (DEFAULT) ---
+with tab2:
     st.header("Consulta Rápida por Componente")
+    col_c1, col_c2, col_c3 = st.columns(3)
     
-    # Formulario industrial: permite rellenar todo usando la tecla TAB y procesar pulsando INTRO
-    with st.form("form_componente"):
-        col_c1, col_c2, col_c3 = st.columns(3)
-        with col_c1:
-            tipo_c = st.radio("Tipo de Elemento:", ["Agujero", "Eje"], horizontal=True)
-            d_nom_c = st.number_input("Medida Nominal (mm):", min_value=0.001, max_value=3150.000, value=100.000, step=0.001, format="%.3f")
-        with col_c2:
-            letra_c = st.text_input("Letra de Posición (ej. H, g, JS):", value="H" if tipo_c == "Agujero" else "h")
-            grado_c = st.selectbox("Grado / Calidad:", list(TABLA_IT.keys()), index=3)
-        with col_c3:
-            val_real_c = st.number_input("Valor real medido en taller (mm):", min_value=0.000, max_value=4000.000, value=100.000, step=0.001, format="%.3f")
-        
-        st.form_submit_button("Calcular e Inspeccionar (Presiona Intro)", use_container_width=True)
+    with col_c1:
+        tipo_c = st.radio("Tipo de Elemento:", ["Agujero", "Eje"], horizontal=True)
+        d_nom_c = st.number_input("Medida Nominal (mm):", min_value=0.001, max_value=3150.000, value=100.000, step=0.001, format="%.3f", key="comp_d")
+    with col_c2:
+        letra_c = st.text_input("Letra de Posición (ej. H, g, JS):", value="H" if tipo_c == "Agujero" else "h")
+        grado_c = st.selectbox("Grado / Calidad:", list(TABLA_IT.keys()), index=3, key="comp_g")
+    with col_c3:
+        val_real_c = st.number_input("Valor real medido en taller (mm):", min_value=0.000, max_value=4000.000, value=float(d_nom_c), step=0.001, format="%.3f", key="comp_real")
 
     letra_valida = True
     if tipo_c == "Agujero" and not letra_c.isupper():
-        st.error("💡 Error: Para Agujeros, la letra de posición DEBE ser MAYÚSCULA.")
+        st.error("💡 Error metrológico: Para Agujeros, la letra de posición DEBE ser MAYÚSCULA.")
         letra_valida = False
     elif tipo_c == "Eje" and not letra_c.islower():
-        st.error("💡 Error: Para Ejes, la letra de posición DEBE ser minúscula.")
+        st.error("💡 Error metrológico: Para Ejes, la letra de posición DEBE ser minúscula.")
         letra_valida = False
 
     if letra_valida and letra_c != "":
         es_c, ei_c, it_c, errs_c = obtener_tolerancias_completas(tipo_c, letra_c, grado_c, d_nom_c)
         if es_c is not None:
-            for al in errs_c: st.warning(al)
+            for al in errs_c:
+                st.warning(al)
                 
-            c_max, c_min = d_nom_c + es_c, d_nom_c + ei_c
+            c_max = d_nom_c + es_c
+            c_min = d_nom_c + ei_c
             status_c = c_min <= val_real_c <= c_max
             
             st.markdown(f"### Resultados de Fabricación para **Ø{d_nom_c:.3f} {letra_c}{grado_c}**")
+            
             cc1, cc2, cc3 = st.columns(3)
             cc1.metric("Dimensión Máxima Conforme", f"{c_max:.3f} mm")
             cc2.metric("Dimensión Mínima Conforme", f"{c_min:.3f} mm")
-            cc3.metric("Evaluación de Calidad", "DENTRO de Rango" if status_c else "FUERA de Rango", 
-                       delta="Pieza Aceptada" if status_c else "Pieza Rechazada", delta_color="normal" if status_c else "inverse")
+            if status_c:
+                cc3.metric("Evaluación de Calidad", "DENTRO de Rango", delta="Pieza Aceptada", delta_color="normal")
+            else:
+                cc3.metric("Evaluación de Calidad", "FUERA de Rango", delta="Pieza Rechazada", delta_color="inverse")
             
+            # Gráfica autoescalada del componente con línea real
             st.components.v1.html(dibujar_componente_svg(tipo_c, d_nom_c, es_c, ei_c, val_real_c, status_c), height=230)
 
-# --- PESTAÑA 2: ANÁLISIS DE AJUSTE COMPLETO ---
-elif st.session_state.pestaña_activa == 1:
+
+# --- PESTAÑA 2: ANÁLISIS DE AJUSTE (CON TODAS LAS FUNCIONES RESTAURADAS) ---
+with tab1:
     st.header("Cálculo de Acoplamientos e Interferencia")
+    col1, col2, col3 = st.columns(3)
     
-    # Formulario completo: integra dimensiones nominales e inspección real en un solo paso de teclado
-    with st.form("form_ajuste_completo"):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            d_nominal = st.number_input("Diámetro Nominal (mm):", min_value=0.001, max_value=3150.000, value=45.000, step=0.001, format="%.3f")
-        with col2:
-            st.markdown("**Configuración del Agujero**")
-            ag_letra = st.selectbox("Posición (Letra):", ["H", "A", "B", "C", "D", "E", "F", "G", "JS", "K", "M", "N", "P", "R", "S", "T", "U", "V", "X", "Y", "Z"], index=0)
-            ag_grado = st.selectbox("Calidad (Grado):", list(TABLA_IT.keys()), index=2)
-        with col3:
-            st.markdown("**Configuración del Eje**")
-            eje_letra = st.selectbox("Posición (Letra):", ["h", "a", "b", "c", "d", "e", "f", "g", "js", "k", "m", "n", "p", "r", "s", "t", "u", "v", "x", "y", "z"], index=7)
-            eje_grado = st.selectbox("Calidad (Grado):", list(TABLA_IT.keys()), index=1)
-            
-        st.markdown("---")
-        st.markdown("##### 📍 Inspección de Medidas Reales de Taller")
-        col_v1, col_v2 = st.columns(2)
-        with col_v1:
-            val_real_ag = st.number_input("Valor real medido - AGUJERO (mm):", min_value=0.000, max_value=4000.000, value=45.000, step=0.001, format="%.3f")
-        with col_v2:
-            val_real_ej = st.number_input("Valor real medido - EJE (mm):", min_value=0.000, max_value=4000.000, value=45.000, step=0.001, format="%.3f")
-            
-        st.form_submit_button("Calcular Ajuste e Inspeccionar Componentes (Presiona Intro)", use_container_width=True)
+    with col1:
+        d_nominal = st.number_input("Diámetro Nominal (mm):", min_value=0.001, max_value=3150.000, value=45.000, step=0.001, format="%.3f", key="aj_nom")
+    with col2:
+        st.subheader("Agujero")
+        ag_letra = st.selectbox("Posición (Letra):", ["H", "A", "B", "C", "D", "E", "F", "G", "JS", "K", "M", "N", "P", "R", "S", "T", "U", "V", "X", "Y", "Z"], index=0, key="let_ag")
+        ag_grado = st.selectbox("Calidad (Grado):", list(TABLA_IT.keys()), index=2, key="ag_g")
+    with col3:
+        st.subheader("Eje")
+        eje_letra = st.selectbox("Posición (Letra):", ["h", "a", "b", "c", "d", "e", "f", "g", "js", "k", "m", "n", "p", "r", "s", "t", "u", "v", "x", "y", "z"], index=7, key="let_ej")
+        eje_grado = st.selectbox("Calidad (Grado):", list(TABLA_IT.keys()), index=1, key="eje_g")
 
     es_Ag, ei_Ag, it_Ag, errs_Ag = obtener_tolerancias_completas("Agujero", ag_letra, ag_grado, d_nominal)
     es_Ej, ei_Ej, it_Ej, errs_Ej = obtener_tolerancias_completas("Eje", eje_letra, eje_grado, d_nominal)
 
     if es_Ag is not None and es_Ej is not None:
         todas_alertas = errs_Ag + errs_Ej
-        for al in todas_alertas: st.warning(al)
+        for al in todas_alertas:
+            st.warning(al)
 
-        Max_Ag, Min_Ag = d_nominal + es_Ag, d_nominal + ei_Ag
-        Max_Ej, Min_Ej = d_nominal + es_Ej, d_nominal + ei_Ej
-        juego_max, juego_min = es_Ag - ei_Ej, ei_Ag - es_Ej
+        Max_Ag = d_nominal + es_Ag
+        Min_Ag = d_nominal + ei_Ag
+        Max_Ej = d_nominal + es_Ej
+        Min_Ej = d_nominal + ei_Ej
+
+        juego_max = es_Ag - ei_Ej
+        juego_min = ei_Ag - es_Ej
         
         if juego_min >= 0:
             tipo_ajuste = "JUEGO (Clearance Fit)"
             color_ajuste = "#2ecc71"
-            txt_det1, txt_det2 = f"Juego Máximo: {juego_max:.3f} mm", f"Juego Mínimo: {juego_min:.3f} mm"
+            txt_det1 = f"Juego Máximo: {juego_max:.3f} mm"
+            txt_det2 = f"Juego Mínimo: {juego_min:.3f} mm"
         elif juego_max <= 0:
             tipo_ajuste = "APRIETO (Interference Fit)"
             color_ajuste = "#e74c3c"
-            txt_det1, txt_det2 = f"Aprieto Máximo: {abs(juego_min):.3f} mm", f"Aprieto Mínimo: {abs(juego_max):.3f} mm"
+            txt_det1 = f"Aprieto Máximo: {abs(juego_min):.3f} mm"
+            txt_det2 = f"Aprieto Mínimo: {abs(juego_max):.3f} mm"
         else:
             tipo_ajuste = "TRANSICIÓN (Transition Fit)"
             color_ajuste = "#3498db"
-            txt_det1, txt_det2 = f"Juego Máximo: {juego_max:.3f} mm", f"Aprieto Máximo: {abs(juego_min):.3f} mm"
+            txt_det1 = f"Juego Máximo: {juego_max:.3f} mm"
+            txt_det2 = f"Aprieto Máximo: {abs(juego_min):.3f} mm"
 
         st.markdown(f"### Ajuste Determinado: <span style='color:{color_ajuste}; font-weight:bold;'>{tipo_ajuste}</span>", unsafe_allow_html=True)
         
@@ -319,25 +331,34 @@ elif st.session_state.pestaña_activa == 1:
         })
         st.table(df_res.set_index("Métrica del Componente"))
 
-        # Resultados de la validación metrológica
-        st.markdown("##### 🏁 Dictamen de Tolerancias Reales")
-        status_ag = Min_Ag <= val_real_ag <= Max_Ag
-        status_ej = Min_Ej <= val_real_ej <= Max_Ej
-        
-        col_r1, col_r2 = st.columns(2)
-        with col_r1:
-            if status_ag: st.success(f"🟢 AGUJERO Real ({val_real_ag:.3f} mm): ACEPTADO.")
-            else: st.error(f"🔴 AGUJERO Real ({val_real_ag:.3f} mm): RECHAZADO.")
-        with col_r2:
-            if status_ej: st.success(f"🟢 EJE Real ({val_real_ej:.3f} mm): ACEPTADO.")
-            else: st.error(f"🔴 EJE Real ({val_real_ej:.3f} mm): RECHAZADO.")
+        # --- SECCIÓN DE METROLOGÍA RE-ACTIVADA ---
+        st.markdown("#### 📍 Validación de Piezas Reales (Metrología de Taller)")
+        col_v1, col_v2 = st.columns(2)
+        with col_v1:
+            val_real_ag = st.number_input("Valor real medido - AGUJERO (mm):", min_value=0.000, max_value=4000.000, value=float(d_nominal), step=0.001, format="%.3f", key="real_ag_fit")
+            status_ag = Min_Ag <= val_real_ag <= Max_Ag
+            if status_ag:
+                st.success(f"🟢 AGUJERO ({val_real_ag:.3f} mm): DENTRO de rango conforme.")
+            else:
+                st.error(f"🔴 AGUJERO ({val_real_ag:.3f} mm): FUERA de rango (RECHAZO).")
+        with col_v2:
+            val_real_ej = st.number_input("Valor real medido - EJE (mm):", min_value=0.000, max_value=4000.000, value=float(d_nominal), step=0.001, format="%.3f", key="real_ej_fit")
+            status_ej = Min_Ej <= val_real_ej <= Max_Ej
+            if status_ej:
+                st.success(f"🟢 EJE ({val_real_ej:.3f} mm): DENTRO de rango conforme.")
+            else:
+                st.error(f"🔴 EJE ({val_real_ej:.3f} mm): FUERA de rango (RECHAZO).")
 
+        # --- GRÁFICA DE AJUSTE COMPLETO RE-ESTABLECIDA Y AUTOESCALADA ---
         st.markdown("#### 📐 Representación Gráfica del Ajuste")
-        st.components.v1.html(dibujar_ajuste_completo_svg(
-            d_nominal, es_Ag, ei_Ag, es_Ej, ei_Ej, val_real_ag, val_real_ej, status_ag, status_ej,
+        svg_code = dibujar_ajuste_completo_svg(
+            d_nominal, es_Ag, ei_Ag, es_Ej, ei_Ej, 
+            val_real_ag, val_real_ej, status_ag, status_ej,
             ag_letra, ag_grado, eje_letra, eje_grado
-        ), height=340)
+        )
+        st.components.v1.html(svg_code, height=340)
 
+        # Botón para descargar informe técnico restaurado
         reporte_markdown = f"""# Informe Técnico de Ajuste e Inspección - Ø{d_nominal:.3f} {ag_letra}{ag_grado}/{eje_letra}{eje_grado}
 - **Tipo de Ajuste:** {tipo_ajuste}
 - **Límites Agujero:** Máximo = {Max_Ag:.3f} mm | Mínimo = {Min_Ag:.3f} mm
