@@ -9,25 +9,21 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- INYECCIÓN DE CSS PARA COMPACTAR LA INTERFAZ (Reducción de márgenes y gaps) ---
+# --- INYECCIÓN DE CSS PARA COMPACTAR LA INTERFAZ ---
 st.markdown("""
     <style>
-    /* Reducir el acolchado superior e inferior del contenedor principal */
     .block-container {
         padding-top: 1.5rem !important;
         padding-bottom: 1.5rem !important;
     }
-    /* Reducir el espacio (gap) por defecto entre elementos de Streamlit */
     div[data-testid="stVerticalBlock"] {
         gap: 0.6rem !important;
     }
-    /* Compactar márgenes en títulos y subtítulos */
     h1, h2, h3, h4 {
         margin-top: 0.4rem !important;
         margin-bottom: 0.2rem !important;
         padding-bottom: 0px !important;
     }
-    /* Ajustar el espaciado de las tablas y widgets */
     .stTable, .stDataFrame, div[data-testid="stBlock"] {
         margin-bottom: 0.2rem !important;
     }
@@ -134,6 +130,9 @@ def obtener_tolerancias_completas(tipo, letra, grado, diametro):
                 es_sup = ei_inf + it_val
 
     return es_sup / 1000.0, ei_inf / 1000.0, it_val / 1000.0, alertas
+
+def formato_desviacion(valor):
+    return f"+{valor:.3f}" if valor >= 0 else f"{valor:.3f}"
 
 # --- GENERADORES GRÁFICOS CON AUTOESCALA DINÁMICA ---
 def dibujar_componente_svg(tipo, nominal, es, ei, real, status):
@@ -283,15 +282,18 @@ with tab2:
             else:
                 cc3.metric("Evaluación de Calidad", "FUERA de Rango", delta="Pieza Rechazada", delta_color="inverse")
             
-            # --- TABLA COMPACTA DE DIMENSIONES LÍMITES ---
+            # --- TABLA COMPACTA CON IMPLICACIÓN DE TOLERANCIA ---
             st.markdown("#### Detalles de las Dimensiones Límites")
+            col_tag = f"{tipo_c.upper()} ({letra_c}{grado_c})"
+            col_imp = f"Implicación {letra_c}{grado_c}"
+            
             df_res_c = pd.DataFrame({
                 "Métrica del Componente": ["Cota Máxima Conforme", "Cota Mínima Conforme"],
-                f"{tipo_c.upper()} ({letra_c}{grado_c})": [f"{c_max:.3f} mm", f"{c_min:.3f} mm"]
+                col_tag: [f"{c_max:.3f} mm", f"{c_min:.3f} mm"],
+                col_imp: [formato_desviacion(es_c), formato_desviacion(ei_c)]
             })
             st.table(df_res_c.set_index("Métrica del Componente"))
             
-            # Gráfica autoescalada del componente con línea real
             st.components.v1.html(dibujar_componente_svg(tipo_c, d_nom_c, es_c, ei_c, val_real_c, status_c), height=230)
 
 
@@ -350,11 +352,14 @@ with tab1:
         c_m2.metric("Condición Límite 1", txt_det1)
         c_m3.metric("Condición Límite 2", txt_det2)
 
+        # --- TABLA COMPACTA CON IMPLICACIÓN DE AJUSTE ---
         st.markdown("#### Detalles de las Dimensiones Límites")
         df_res = pd.DataFrame({
             "Métrica del Componente": ["Cota Máxima Conforme", "Cota Mínima Conforme"],
             "AGUJERO": [f"{Max_Ag:.3f} mm", f"{Min_Ag:.3f} mm"],
-            "EJE": [f"{Max_Ej:.3f} mm", f"{Min_Ej:.3f} mm"]
+            f"Implicación {ag_letra}{ag_grado}": [formato_desviacion(es_Ag), formato_desviacion(ei_Ag)],
+            "EJE": [f"{Max_Ej:.3f} mm", f"{Min_Ej:.3f} mm"],
+            f"Implicación {eje_letra}{eje_grado}": [formato_desviacion(es_Ej), formato_desviacion(ei_Ej)]
         })
         st.table(df_res.set_index("Métrica del Componente"))
 
@@ -385,7 +390,6 @@ with tab1:
         )
         st.components.v1.html(svg_code, height=340)
 
-        # Botón para descargar informe técnico
         reporte_markdown = f"""# Informe Técnico de Ajuste e Inspección - Ø{d_nominal:.3f} {ag_letra}{ag_grado}/{eje_letra}{eje_grado}
 - **Tipo de Ajuste:** {tipo_ajuste}
 - **Límites Agujero:** Máximo = {Max_Ag:.3f} mm | Mínimo = {Min_Ag:.3f} mm
